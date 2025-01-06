@@ -17,7 +17,7 @@
 ## updatedMessages = updateMessagesFromResponse response messages 
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { pathFromStr, pathToStr, listDir, isDir, readFile, writeUtf8 } -> [
+module { pathFromStr, pathToStr, listDir!, isDir!, readFile!, writeUtf8! } -> [
     listDirectory,
     listFileTree,
     readFileContents,
@@ -28,10 +28,10 @@ import json.Json
 import InternalTools exposing [Tool, buildTool]
 
 ## Expose name, handler and tool for listDirectory.
-listDirectory : { name : Str, handler : Str -> Task Str *, tool : Tool }
+listDirectory : { name : Str, handler! : Str => Result Str *, tool : Tool }
 listDirectory = {
     name: listDirectoryTool.function.name,
-    handler: listDirectoryHandler,
+    handler!: listDirectoryHandler!,
     tool: listDirectoryTool,
 }
 
@@ -47,34 +47,33 @@ listDirectoryTool =
     buildTool "listDirectory" "List the contents of a directory" [pathParam]
 
 ## Handler for the listDirectory tool
-listDirectoryHandler : Str -> Task Str _
-listDirectoryHandler = \args ->
+listDirectoryHandler! : Str => Result Str _
+listDirectoryHandler! = \args ->
     decoded : Decode.DecodeResult { path : Str }
     decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
     when decoded.result is
         Err _ ->
-            Task.ok "Failed to decode args"
+            Ok "Failed to decode args"
 
         Ok { path } ->
             if path |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
+                Ok "Invalid path: `..` is not allowed"
             else if path |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+                Ok "Invalid path: must be a relative path"
             else
-                listDir (pathFromStr path)
-                    |> Task.result!
-                    |> Result.withDefault []
-                    |> List.map pathToStr
-                    |> Str.joinWith "\n"
-                    |> Task.ok
+                listDir! (pathFromStr path)
+                |> Result.withDefault []
+                |> List.map pathToStr
+                |> Str.joinWith "\n"
+                |> Ok
 
 ## Expose name, handler and tool for listFileTree.
 ##
 ## This tool will allow the model to list the contents of a directory, and all subdirectories.
-listFileTree : { name : Str, handler : Str -> Task Str *, tool : Tool }
+listFileTree : { name : Str, handler : Str => Result Str *, tool : Tool }
 listFileTree = {
     name: listFileTreeTool.function.name,
-    handler: listFileTreeHandler,
+    handler!: listFileTreeHandler!,
     tool: listFileTreeTool,
 }
 
@@ -90,52 +89,52 @@ listFileTreeTool =
     buildTool "listFileTree" "List the contents of a directory and all subdirectories" [pathParam]
 
 ## Handler for the listFileTree tool
-listFileTreeHandler : Str -> Task Str _
-listFileTreeHandler = \args ->
+listFileTreeHandler! : Str => Result Str _
+listFileTreeHandler! = \args ->
     decoded : Decode.DecodeResult { path : Str }
     decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
     when decoded.result is
         Err _ ->
-            Task.ok "Failed to decode args"
+            Ok "Failed to decode args"
 
         Ok { path } ->
             if path |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
+                Ok "Invalid path: `..` is not allowed"
             else if path |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+                Ok "Invalid path: must be a relative path"
             else
-                dirContents = path |> pathFromStr |> listDir |> Task.result! |> Result.withDefault []
-                fileTreeHelper dirContents "" 0
+                dirContents = path |> pathFromStr |> listDir! |> Result.withDefault []
+                fileTreeHelper! dirContents "" 0
 
 ## Recursive helper function for listFileTreeHandler
-fileTreeHelper : List path, Str, U64 -> Task Str _
-fileTreeHelper = \paths, accumulation, depth ->
+fileTreeHelper! : List path, Str, U64 => Result Str _
+fileTreeHelper! = \paths, accumulation, depth ->
     prependNewline = \str -> if Str.isEmpty str then str else Str.concat "\n" str
     appendNewline = \str -> if Str.isEmpty str then str else Str.concat str "\n"
     buildStr = \previous, current, subcontents -> "$(appendNewline previous)$(current)$(subcontents)"
 
     when paths is
         [] ->
-            Task.ok accumulation
+            Ok accumulation
 
         [path, .. as pathsTail] ->
             if pathToStr path |> Str.contains "/." then
-                fileTreeHelper pathsTail accumulation depth
-            else if isDir! path then
-                subcontents = fileTreeHelper! (listDir! path) "" (depth + 1) |> prependNewline
+                fileTreeHelper! pathsTail accumulation depth
+            else if try isDir! path then
+                subcontents = try fileTreeHelper! (listDir! path) "" (depth + 1) |> prependNewline
                 newString = buildStr accumulation (pathToStr path) subcontents
-                fileTreeHelper pathsTail newString depth
+                fileTreeHelper! pathsTail newString depth
             else
                 newString = buildStr accumulation (pathToStr path) ""
-                fileTreeHelper pathsTail newString depth
+                fileTreeHelper! pathsTail newString depth
 
 ## Expose name, handler and tool for readFileContents.
 ##
 ## This tool will allow the model to read the contents of a file.
-readFileContents : { name : Str, handler : Str -> Task Str *, tool : Tool }
+readFileContents : { name : Str, handler! : Str => Result Str *, tool : Tool }
 readFileContents = {
     name: readFileContentsTool.function.name,
-    handler: readFileContentsHandler,
+    handler!: readFileContentsHandler!,
     tool: readFileContentsTool,
 }
 
@@ -151,34 +150,33 @@ readFileContentsTool =
     buildTool "readFileContents" "Read the contents of a file. Must be a plain text file (any extension)." [pathParam]
 
 ## Handler for the readFileContents tool
-readFileContentsHandler : Str -> Task Str _
-readFileContentsHandler = \args ->
+readFileContentsHandler! : Str => Result Str _
+readFileContentsHandler! = \args ->
     decoded : Decode.DecodeResult { path : Str }
     decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
     when decoded.result is
         Err _ ->
-            Task.ok "Failed to decode args"
+            Ok "Failed to decode args"
 
         Ok { path } ->
             if path |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
+                Ok "Invalid path: `..` is not allowed"
             else if path |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+                Ok "Invalid path: must be a relative path"
             else
                 path
-                    |> pathFromStr
-                    |> readFile
-                    |> Task.result!
-                    |> Result.withDefault "Failed to read file"
-                    |> Task.ok
+                |> pathFromStr
+                |> readFile!
+                |> Result.withDefault "Failed to read file"
+                |> Ok
 
 ## Expose name, handler and tool for writeFileContents.
 ##
 ## This tool will allow the model to write content to a file.
-writeFileContents : { name : Str, handler : Str -> Task Str *, tool : Tool }
+writeFileContents : { name : Str, handler! : Str => Result Str *, tool : Tool }
 writeFileContents = {
     name: writeFileContentsTool.function.name,
-    handler: writeFileContentsHandler,
+    handler!: writeFileContentsHandler!,
     tool: writeFileContentsTool,
 }
 
@@ -200,34 +198,32 @@ writeFileContentsTool =
     buildTool
         "writeFileContents"
         """
-        Write the text content to a file. Any existing file at the specified path will be overwritten.
-        If the file does not exist, it will be created, but parent directories must exist.
+        Write the text content to a file. Any existing file at the specified path will be overwritten. If the file does not exist, it will be created, but parent directories must exist.
         """
         [pathParam, contentParam]
 
 ## Handler for the writeFileContents tool
-writeFileContentsHandler : Str -> Task Str _
-writeFileContentsHandler = \args ->
+writeFileContentsHandler! : Str => Result Str _
+writeFileContentsHandler! = \args ->
     decoded : Decode.DecodeResult { path : Str, content : Str }
     decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
     when decoded.result is
         Err _ ->
-            Task.ok "Failed to decode args"
+            Ok "Failed to decode args"
 
         Ok { path, content } ->
             if path |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
+                Ok "Invalid path: `..` is not allowed"
             else if path |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+                Ok "Invalid path: must be a relative path"
             else
                 path
-                    |> pathFromStr
-                    |> writeUtf8 content
-                    |> Task.result!
-                    |> Result.try \_ -> Ok "File successfully updated."
-                    |> Result.onErr handleWriteErr
-                    |> Result.withDefault "Error writing to file"
-                    |> Task.ok
+                |> pathFromStr
+                |> writeUtf8! content
+                |> Result.try \_ -> Ok "File successfully updated."
+                |> Result.onErr handleWriteErr
+                |> Result.withDefault "Error writing to file"
+                |> Ok
 
 handleWriteErr = \err ->
     when err is
