@@ -28,10 +28,10 @@ import json.Json
 import InternalTools exposing [Tool, buildTool]
 
 ## Expose name, handler and tool for listDirectory.
-listDirectory : { name : Str, handler! : Str => Result Str *, tool : Tool }
+listDirectory : { name : Str, handler : Str => Result Str *, tool : Tool }
 listDirectory = {
     name: listDirectoryTool.function.name,
-    handler!: listDirectoryHandler!,
+    handler: listDirectoryHandler!,
     tool: listDirectoryTool,
 }
 
@@ -61,19 +61,20 @@ listDirectoryHandler! = \args ->
             else if path |> Str.startsWith "/" then
                 Ok "Invalid path: must be a relative path"
             else
-                listDir! (pathFromStr path)
-                |> Result.withDefault []
-                |> List.map pathToStr
-                |> Str.joinWith "\n"
-                |> Ok
+                Ok "success"
+                # listDir! (pathFromStr path)
+                # |> Result.withDefault []
+                # |> List.map pathToStr
+                # |> Str.joinWith "\n"
+                # |> Ok
 
 ## Expose name, handler and tool for listFileTree.
 ##
 ## This tool will allow the model to list the contents of a directory, and all subdirectories.
-listFileTree : { name : Str, handler! : Str => Result Str *, tool : Tool }
+listFileTree : { name : Str, handler : Str => Result Str *, tool : Tool }
 listFileTree = {
     name: listFileTreeTool.function.name,
-    handler!: listFileTreeHandler!,
+    handler: listFileTreeHandler!,
     tool: listFileTreeTool,
 }
 
@@ -103,38 +104,39 @@ listFileTreeHandler! = \args ->
             else if path |> Str.startsWith "/" then
                 Ok "Invalid path: must be a relative path"
             else
-                dirContents = path |> pathFromStr |> listDir! |> Result.withDefault []
-                fileTreeHelper! dirContents "" 0
+                Ok "success"
+                # dirContents = path |> pathFromStr |> listDir! |> Result.withDefault []
+                # fileTreeHelper! dirContents "" 0
 
 ## Recursive helper function for listFileTreeHandler
-fileTreeHelper! : List path, Str, U64 => Result Str _
-fileTreeHelper! = \paths, accumulation, depth ->
-    prependNewline = \str -> if Str.isEmpty str then str else Str.concat "\n" str
-    appendNewline = \str -> if Str.isEmpty str then str else Str.concat str "\n"
-    buildStr = \previous, current, subcontents -> "$(appendNewline previous)$(current)$(subcontents)"
+# fileTreeHelper! : List path, Str, U64 => Result Str _
+# fileTreeHelper! = \paths, accumulation, depth ->
+#     prependNewline = \str -> if Str.isEmpty str then str else Str.concat "\n" str
+#     appendNewline = \str -> if Str.isEmpty str then str else Str.concat str "\n"
+#     buildStr = \previous, current, subcontents -> "$(appendNewline previous)$(current)$(subcontents)"
 
-    when paths is
-        [] ->
-            Ok accumulation
+#     when paths is
+#         [] ->
+#             Ok accumulation
 
-        [path, .. as pathsTail] ->
-            if pathToStr path |> Str.contains "/." then
-                fileTreeHelper! pathsTail accumulation depth
-            else if try isDir! path then
-                subcontents = try fileTreeHelper! (listDir! path) "" (depth + 1) |> prependNewline
-                newString = buildStr accumulation (pathToStr path) subcontents
-                fileTreeHelper! pathsTail newString depth
-            else
-                newString = buildStr accumulation (pathToStr path) ""
-                fileTreeHelper! pathsTail newString depth
+#         [path, .. as pathsTail] ->
+#             if pathToStr path |> Str.contains "/." then
+#                 fileTreeHelper! pathsTail accumulation depth
+#             else if try isDir! path then
+#                 subcontents = try fileTreeHelper! (listDir! path) "" (depth + 1) |> prependNewline
+#                 newString = buildStr accumulation (pathToStr path) subcontents
+#                 fileTreeHelper! pathsTail newString depth
+#             else
+#                 newString = buildStr accumulation (pathToStr path) ""
+#                 fileTreeHelper! pathsTail newString depth
 
 ## Expose name, handler and tool for readFileContents.
 ##
 ## This tool will allow the model to read the contents of a file.
-readFileContents : { name : Str, handler! : Str => Result Str *, tool : Tool }
+readFileContents : { name : Str, handler : Str => Result Str *, tool : Tool }
 readFileContents = {
     name: readFileContentsTool.function.name,
-    handler!: readFileContentsHandler!,
+    handler: readFileContentsHandler!,
     tool: readFileContentsTool,
 }
 
@@ -164,19 +166,20 @@ readFileContentsHandler! = \args ->
             else if path |> Str.startsWith "/" then
                 Ok "Invalid path: must be a relative path"
             else
-                path
-                |> pathFromStr
-                |> readFile!
-                |> Result.withDefault "Failed to read file"
-                |> Ok
+                Ok "success"
+                # path
+                # |> pathFromStr
+                # |> readFile!
+                # |> Result.withDefault "Failed to read file"
+                # |> Ok
 
 ## Expose name, handler and tool for writeFileContents.
 ##
 ## This tool will allow the model to write content to a file.
-writeFileContents : { name : Str, handler! : Str => Result Str *, tool : Tool }
+writeFileContents : { name : Str, handler : Str => Result Str *, tool : Tool }
 writeFileContents = {
     name: writeFileContentsTool.function.name,
-    handler!: writeFileContentsHandler!,
+    handler: writeFileContentsHandler!,
     tool: writeFileContentsTool,
 }
 
@@ -217,13 +220,14 @@ writeFileContentsHandler! = \args ->
             else if path |> Str.startsWith "/" then
                 Ok "Invalid path: must be a relative path"
             else
-                path
-                |> pathFromStr
-                |> writeUtf8! content
-                |> Result.try \_ -> Ok "File successfully updated."
-                |> Result.onErr handleWriteErr
-                |> Result.withDefault "Error writing to file"
-                |> Ok
+                Ok "success"
+                # path
+                # |> pathFromStr
+                # |> writeUtf8! content
+                # |> Result.try \_ -> Ok "File successfully updated."
+                # |> Result.onErr handleWriteErr
+                # |> Result.withDefault "Error writing to file"
+                # |> Ok
 
 handleWriteErr = \err ->
     when err is
