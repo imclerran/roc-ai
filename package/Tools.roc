@@ -55,7 +55,6 @@ handleToolCalls = \messages, client, toolHandlerMap, { maxModelCalls ? Num.maxU3
             if List.isEmpty toolCalls || maxModelCalls == 0 then
                 Task.ok messages
             else
-                # requestClient = if maxModelCalls == 1 then Client.setTools client [] else client
                 tc = if maxModelCalls > 1 then { toolChoice: Auto } else { toolChoice: None }
                 toolMessages = dispatchToolCalls! toolCalls toolHandlerMap
                 messagesWithTools = List.join [messages, toolMessages]
