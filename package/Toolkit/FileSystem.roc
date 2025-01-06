@@ -19,6 +19,7 @@
 ## ```
 module { pathFromStr, pathToStr, listDir!, isDir!, readFile!, writeUtf8! } -> [
     listDirectory,
+    #listDirectoryHandler!,
     listFileTree,
     readFileContents,
     writeFileContents,
@@ -121,7 +122,7 @@ fileTreeHelper! = \paths, accumulation, depth ->
             if pathToStr path |> Str.contains "/." then
                 fileTreeHelper! pathsTail accumulation depth
             else if try isDir! path then
-                subcontents = try fileTreeHelper! (listDir! path) "" (depth + 1) |> prependNewline
+                subcontents = try fileTreeHelper! (try listDir! path) "" (depth + 1) |> prependNewline
                 newString = buildStr accumulation (pathToStr path) subcontents
                 fileTreeHelper! pathsTail newString depth
             else
