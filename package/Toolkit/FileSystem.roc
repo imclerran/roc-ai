@@ -70,7 +70,7 @@ listDirectoryHandler! = \args ->
 ## Expose name, handler and tool for listFileTree.
 ##
 ## This tool will allow the model to list the contents of a directory, and all subdirectories.
-listFileTree : { name : Str, handler : Str => Result Str *, tool : Tool }
+listFileTree : { name : Str, handler! : Str => Result Str *, tool : Tool }
 listFileTree = {
     name: listFileTreeTool.function.name,
     handler!: listFileTreeHandler!,
