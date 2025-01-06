@@ -48,18 +48,20 @@ Message : {
 ## Using the given toolHandlerMap, check the last message for tool calls, call all the tools in the tool call list, send the results back to the model, and handle any additional tool calls that may have been generated. If or when no more tool calls are present, return the updated list of messages.
 ## 
 ## The Dict maps function tool names strings to roc functions that take their arguments as a JSON string, parse the json, and return the tool's response.
-handleToolCalls : List Message, Client, Dict Str (Str -> Task Str _) -> Task (List Message) _
-handleToolCalls = \messages, client, toolHandlerMap ->
+handleToolCalls : List Message, Client, Dict Str (Str -> Task Str _), { maxModelCalls ? U32 } -> Task (List Message) _
+handleToolCalls = \messages, client, toolHandlerMap, { maxModelCalls ? Num.maxU32 } ->
     when List.last messages is
         Ok { role, toolCalls } if role == "assistant" ->
-            if List.isEmpty toolCalls then
+            if List.isEmpty toolCalls || maxModelCalls == 0 then
                 Task.ok messages
             else
+                # requestClient = if maxModelCalls == 1 then Client.setTools client [] else client
+                tc = if maxModelCalls > 1 then { toolChoice: Auto } else { toolChoice: None }
                 toolMessages = dispatchToolCalls! toolCalls toolHandlerMap
                 messagesWithTools = List.join [messages, toolMessages]
-                response = sendHttpReq (Chat.buildHttpRequest client messagesWithTools {}) |> Task.result!
+                response = sendHttpReq (Chat.buildHttpRequest client messagesWithTools tc) |> Task.result!
                 messagesWithResponse = Chat.updateMessageList response messagesWithTools
-                handleToolCalls messagesWithResponse client toolHandlerMap
+                handleToolCalls messagesWithResponse client toolHandlerMap { maxModelCalls: maxModelCalls - 1 }
 
         _ -> Task.ok messages
 

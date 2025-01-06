@@ -36,7 +36,7 @@ main =
         Stdout.write! "You: "
         messages = Chat.appendUserMessage previousMessages Stdin.line! {}
         response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-        updatedMessages = Chat.updateMessageList response messages |> Tools.handleToolCalls! client toolHandlerMap
+        updatedMessages = Chat.updateMessageList response messages |> Tools.handleToolCalls! client toolHandlerMap { maxModelCalls: 10 }
         printLastMessage! updatedMessages
         Task.ok (Step { previousMessages: updatedMessages })
 
