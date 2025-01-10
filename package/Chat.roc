@@ -4,16 +4,16 @@ module [
     ChatResponseBody,
     Message,
     Client,
-    appendAssistantMessage,
-    appendSystemMessage,
-    appendUserMessage,
-    buildHttpRequest,
-    decodeErrorResponse,
-    decodeResponse,
-    updateMessageList,
-    decodeTopMessageChoice,
-    encodeRequestBody,
-    initClient,
+    append_assistant_message,
+    append_system_message,
+    append_user_message,
+    build_http_request,
+    decode_error_response,
+    decode_response,
+    update_message_list,
+    decode_top_message_choice,
+    encode_request_body,
+    init_client,
 ]
 
 import json.Json
@@ -22,14 +22,14 @@ import json.Option exposing [Option]
 import Client
 import InternalTools exposing [ToolCall, ToolChoice]
 import Shared exposing [
-    RequestObject, 
-    ApiError, 
+    RequestObject,
+    ApiError,
     HttpResponse,
-    dropLeadingGarbage, 
-    optionToStr,
-    optionToList,
-    strToOption,
-    listToOption,
+    drop_leading_garbage,
+    option_to_str,
+    option_to_list,
+    str_to_option,
+    list_to_option,
 ]
 
 Client : Client.Client
@@ -38,44 +38,44 @@ Client : Client.Client
 Message : {
     role : Str,
     content : Str,
-    toolCalls : List ToolCall,
+    tool_calls : List ToolCall,
     name : Str,
-    toolCallId : Str,
-    cached: Bool,
+    tool_call_id : Str,
+    cached : Bool,
 }
 
 ## Internal ChatML message to decode messages from JSON. Allows optional fields.
 DecodeMessage : {
     role : Str,
     content : Option Str,
-    toolCalls : Option (List ToolCall),
+    tool_calls : Option (List ToolCall),
     name : Option Str,
-    toolCallId : Option Str,
+    tool_call_id : Option Str,
 }
 
 ## The structure of cached messages to be encoded to JSON for the API.
 EncodeCacheMessage : {
     role : Str,
     content : List CacheContent,
-    toolCalls : Option (List ToolCall),
+    tool_calls : Option (List ToolCall),
     name : Option Str,
-    toolCallId : Option Str,
+    tool_call_id : Option Str,
 }
 
 ## The structure of non-cached messages to be encoded to JSON for the API.
 EncodeBasicMessage : {
     role : Str,
     content : Str,
-    toolCalls : Option (List ToolCall),
+    tool_calls : Option (List ToolCall),
     name : Option Str,
-    toolCallId : Option Str,
+    tool_call_id : Option Str,
 }
 
 ## The message content of a cacheable message.
 CacheContent : {
-    type: Str,
-    text: Str,
-    cacheControl: Option { type: Str },
+    type : Str,
+    text : Str,
+    cache_control : Option { type : Str },
 }
 
 ## The structure of the request body to be sent in the Http request.
@@ -83,15 +83,15 @@ ChatRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
-    topA : F32,
-    topP : F32,
-    topK : U64,
-    frequencyPenalty : F32,
-    presencePenalty : F32,
-    repetitionPenalty : F32,
-    minP : F32,
+    top_a : F32,
+    top_p : F32,
+    top_k : U64,
+    frequency_penalty : F32,
+    presence_penalty : F32,
+    repetition_penalty : F32,
+    min_p : F32,
     seed : Option U64,
-    maxTokens : Option U64,
+    max_tokens : Option U64,
     provider : {
         order : Option (List Str),
     },
@@ -110,12 +110,12 @@ ChatResponseBody : {
     choices : List {
         index : U8,
         message : Message,
-        finishReason : Str,
+        finish_reason : Str,
     },
     usage : {
-        promptTokens : U64,
-        completionTokens : U64,
-        totalTokens : U64,
+        prompt_tokens : U64,
+        completion_tokens : U64,
+        total_tokens : U64,
     },
 }
 
@@ -128,210 +128,211 @@ DecodeChatResponseBody : {
     choices : List {
         index : U8,
         message : DecodeMessage,
-        finishReason : Option Str,
+        finish_reason : Option Str,
     },
     usage : {
-        promptTokens : U64,
-        completionTokens : U64,
-        totalTokens : U64,
+        prompt_tokens : U64,
+        completion_tokens : U64,
+        total_tokens : U64,
     },
 }
 
 ## Initialize the OpenRouter API client with the required API key. All parameters besides apiKey are completely optional, and may be set during initialization, assigned later, or left as their defaults.
 ## ```
-## client = Chat.initClient { apiKey: "your_openrouter_api_key" }
+## client = Chat.new_client { apiKey: "your_openrouter_api_key" }
 ## ```
-## Same as `Client.init`.
-initClient = Client.init
+## Same as `Client.new`.
+new_client = Client.new
 
 ## Create a request object to be sent with basic-cli's Http.send using ChatML messages.
-buildHttpRequest : Client, List Message, { toolChoice ? ToolChoice } -> RequestObject
-buildHttpRequest = \client, messages, { toolChoice ? Auto } ->
-    body = buildRequestBody client
+build_http_request : Client, List Message, { tool_choice ?? ToolChoice } -> RequestObject
+build_http_request = \client, messages, { tool_choice ?? Auto } ->
+    body = build_request_body(client)
     tools =
-        when Option.get client.tools is
-            Some toolList -> toolList
+        when Option.get(client.tools) is
+            Some(tool_list) -> tool_list
             None -> []
     {
         method: Post,
-        headers: [{ key: "Authorization", value: "Bearer $(client.apiKey)" }],
+        headers: [{ key: "Authorization", value: "Bearer $(client.api_key)" }],
         url: client.url,
-        mimeType: "application/json",
-        body: encodeRequestBody body
-        |> injectMessages messages
-        |> InternalTools.injectTools tools
-        |> InternalTools.injectToolChoice toolChoice,
-        timeout: client.requestTimeout,
+        mime_type: "application/json",
+        body: encode_request_body(body)
+        |> inject_messages(messages)
+        |> InternalTools.inject_tools(tools)
+        |> InternalTools.inject_tool_choice(tool_choice),
+        timeout: client.request_timeout,
     }
 
 ## Build the request body to be sent in the Http request using ChatML messages.
-buildRequestBody : Client -> ChatRequestBody
-buildRequestBody = \client -> {
+build_request_body : Client -> ChatRequestBody
+build_request_body = \client -> {
     messages: [],
     model: client.model,
     temperature: client.temperature,
-    topA: client.topA,
-    topP: client.topP,
-    topK: client.topK,
-    frequencyPenalty: client.frequencyPenalty,
-    presencePenalty: client.presencePenalty,
-    repetitionPenalty: client.repetitionPenalty,
-    minP: client.minP,
+    top_a: client.top_a,
+    top_p: client.top_p,
+    top_k: client.top_k,
+    frequency_penalty: client.frequency_penalty,
+    presence_penalty: client.presence_penalty,
+    repetition_penalty: client.repetition_penalty,
+    min_p: client.min_p,
     seed: client.seed,
-    maxTokens: client.maxTokens,
-    provider: { order: client.providerOrder },
+    max_tokens: client.max_tokens,
+    provider: { order: client.provider_order },
     models: client.models,
     route: client.route,
 }
 
 ## Decode the JSON response body to a ChatML style request.
-decodeResponse : List U8 -> Result ChatResponseBody _
-decodeResponse = \bodyBytes ->
-    cleanedBody = dropLeadingGarbage bodyBytes
-    decoder = Json.utf8With { fieldNameMapping: SnakeCase }
+decode_response : List U8 -> Result ChatResponseBody _
+decode_response = \body_bytes ->
+    cleaned_body = drop_leading_garbage(body_bytes)
+    decoder = Json.utf8With({ fieldNameMapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeChatResponseBody
-    decoded = Decode.fromBytesPartial cleanedBody decoder
+    decoded = Decode.from_bytes_partial(cleaned_body, decoder)
     decoded.result
-    |> Result.map \internalResponse -> {
-        id: internalResponse.id,
-        model: internalResponse.model,
-        object: internalResponse.object,
-        created: internalResponse.created,
-        choices: internalResponse.choices
-        |> List.map \{ index, message: internalMessage, finishReason: internalFinishReason } -> {
+    |> Result.map(\internal_response -> {
+        id: internal_response.id,
+        model: internal_response.model,
+        object: internal_response.object,
+        created: internal_response.created,
+        choices: internal_response.choices
+        |> List.map(\{ index, message: decode_message, finish_reason: internal_finish_reason } -> {
             index,
-            message: convertInternalMessage internalMessage,
-            finishReason: optionToStr internalFinishReason,
-        },
-        usage: internalResponse.usage,
-    }
+            message: convert_decode_message(decode_message),
+            finish_reason: option_to_str(internal_finish_reason),
+        }),
+        usage: internal_response.usage,
+    })
 
 ## Convert an DecodeMessage to a Message.
-convertInternalMessage : DecodeMessage -> Message
-convertInternalMessage = \internalMessage -> {
-    role: internalMessage.role,
-    content: optionToStr internalMessage.content,
-    toolCalls: optionToList internalMessage.toolCalls,
-    toolCallId: optionToStr internalMessage.toolCallId,
-    name: optionToStr internalMessage.name,
+convert_decode_message : DecodeMessage -> Message
+convert_decode_message = \decode_message -> {
+    role: decode_message.role,
+    content: option_to_str(decode_message.content),
+    tool_calls: option_to_list(decode_message.tool_calls),
+    tool_call_id: option_to_str(decode_message.tool_call_id),
+    name: option_to_str(decode_message.name),
     cached: Bool.false,
 }
 
 ## Build a CacheContent object for a message.
-buildMessageContent : Str, Bool -> CacheContent
-buildMessageContent = \text, cached -> { 
-    type: "text", 
-    text, 
-    cacheControl: if cached then Option.some { type: "ephemeral" } else Option.none {},
+build_message_content : Str, Bool -> CacheContent
+build_message_content = \text, cached -> {
+    type: "text",
+    text,
+    cache_control: if cached then Option.some({ type: "ephemeral" }) else Option.none({}),
 }
 
 ## Decode the JSON response body to the first message in the list of choices.
-decodeTopMessageChoice : List U8 -> Result Message [ApiError ApiError, DecodingError, NoChoices, BadJson Str]
-decodeTopMessageChoice = \responseBodyBytes ->
-    when decodeResponse responseBodyBytes is
-        Ok body ->
-            when List.get body.choices 0 is
-                Ok choice -> Ok choice.message
-                Err _ -> Err NoChoices
+decode_top_message_choice : List U8 -> Result Message [ApiError ApiError, DecodingError, NoChoices, BadJson Str]
+decode_top_message_choice = \response_body_bytes ->
+    when decode_response(response_body_bytes) is
+        Ok(body) ->
+            when List.get(body.choices, 0) is
+                Ok(choice) -> Ok(choice.message)
+                Err(_) -> Err(NoChoices)
 
-        Err _ ->
-            when decodeErrorResponse responseBodyBytes is
-                Ok err -> Err (ApiError err.error)
-                Err _ ->
-                    when responseBodyBytes |> Str.fromUtf8 is
-                        Ok str -> Err (BadJson str)
-                        Err _ -> Err DecodingError
+        Err(_) ->
+            when decode_error_response(response_body_bytes) is
+                Ok(err) -> Err(ApiError(err.error))
+                Err(_) ->
+                    when response_body_bytes |> Str.from_utf8 is
+                        Ok(str) -> Err(BadJson(str))
+                        Err(_) -> Err(DecodingError)
 
 ## Decode the JSON response body of an API error message.
-decodeErrorResponse = Shared.decodeErrorResponse
+decode_error_response = Shared.decode_error_response
 
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
-updateMessageList : Result HttpResponse _, List Message -> List Message
-updateMessageList = \responseRes, messages->
-    when responseRes is
-        Ok response ->
-            when decodeTopMessageChoice response.body is
-                Ok message -> List.append messages message
-                Err (ApiError err) -> appendSystemMessage messages "API error: $(Inspect.toStr err)" {} #err.message
-                Err NoChoices -> appendSystemMessage messages "No choices in API response" {}
-                Err (BadJson str) -> appendSystemMessage messages "Could not decode JSON response:\n$(str)" {}
-                Err DecodingError -> appendSystemMessage messages "Error decoding API response" {}
-        
-        Err (HttpErr (BadStatus { code }) ) ->
-            appendSystemMessage messages "Http error: $(Num.toStr code)" {}
+update_message_list : Result HttpResponse _, List Message -> List Message
+update_message_list = \response_res, messages ->
+    when response_res is
+        Ok(response) ->
+            when decode_top_message_choice(response.body) is
+                Ok(message) -> List.append(messages, message)
+                Err(ApiError(err)) -> append_system_message(messages, "API error: $(Inspect.to_str(err))", {}) # err.message
+                Err(NoChoices) -> append_system_message(messages, "No choices in API response", {})
+                Err(BadJson(str)) -> append_system_message(messages, "Could not decode JSON response:\n$(str)", {})
+                Err(DecodingError) -> append_system_message(messages, "Error decoding API response", {})
 
-        Err (HttpErr _) -> 
-            appendSystemMessage messages "Http error" {}
+        Err(HttpErr(BadStatus({ code }))) ->
+            append_system_message(messages, "Http error: $(Num.to_str(code))", {})
+
+        Err(HttpErr(_)) ->
+            append_system_message(messages, "Http error", {})
 
 ## Encode the request body to be sent in the Http request.
-encodeRequestBody : ChatRequestBody -> List U8
-encodeRequestBody = \body ->
-    Encode.toBytes
-        body
-        (
-            Json.utf8With {
-                fieldNameMapping: SnakeCase,
-                emptyEncodeAsNull: Json.encodeAsNullOption { record: Bool.false },
-            }
-        )
+encode_request_body : ChatRequestBody -> List U8
+encode_request_body = \body ->
+    Encode.to_bytes(
+        body,
+        Json.utf8With({
+            fieldNameMapping: SnakeCase,
+            emptyEncodeAsNull: Json.encodeAsNullOption({ record: Bool.false }),
+        }),
+    )
 
 ## Inject the messages list into the request body, by encoding the message to the correct format based on the cached flag.
-injectMessages : List U8, List Message -> List U8
-injectMessages = \bodyBytes, messages ->
-    injectAt = List.walkWithIndexUntil bodyBytes 0 \_, _, i ->
-        when List.dropFirst bodyBytes i is
-            ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', '[', ..] -> Break (i + 11)
-            ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', ' ', '[', ..] -> Break (i + 12)
-            _ -> Continue 0
+inject_messages : List U8, List Message -> List U8
+inject_messages = \body_bytes, messages ->
+    inject_at = List.walk_with_index_until(body_bytes, 0, \_, _, i ->
+        when List.drop_first(body_bytes, i) is
+            ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', '[', ..] -> Break((i + 11))
+            ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', ' ', '[', ..] -> Break((i + 12))
+            _ -> Continue(0))
 
-    if injectAt == 0 then
-        bodyBytes
+    if inject_at == 0 then
+        body_bytes
     else
-        { before, others } = List.splitAt bodyBytes injectAt
-        messageBytes = messages |> List.map \message ->
-            if message.cached && message.toolCallId == "" then
-                messageToCacheMessage message
-                |> Encode.toBytes (Json.utf8With { fieldNameMapping: SnakeCase, emptyEncodeAsNull: Json.encodeAsNullOption { record: Bool.false } })
-                |> List.append ','
-            else
-                messageToBasicMessage message
-                |> Encode.toBytes (Json.utf8With { fieldNameMapping: SnakeCase, emptyEncodeAsNull: Json.encodeAsNullOption { record: Bool.false } })
-                |> List.append ','
+        { before, others } = List.split_at(body_bytes, inject_at)
+        message_bytes =
+            messages
+            |> List.map(\message ->
+                if message.cached && message.tool_call_id == "" then
+                    message_to_cache_message(message)
+                    |> Encode.to_bytes(Json.utf8With({ fieldNameMapping: SnakeCase, emptyEncodeAsNull: Json.encodeAsNullOption({ record: Bool.false }) }))
+                    |> List.append(',')
+                else
+                    message_to_basic_message(message)
+                    |> Encode.to_bytes(Json.utf8With({ fieldNameMapping: SnakeCase, emptyEncodeAsNull: Json.encodeAsNullOption({ record: Bool.false }) }))
+                    |> List.append(','))
             |> List.join
-            |> List.dropLast 1
-        List.join [before, messageBytes, others]
+            |> List.drop_last(1)
+        List.join([before, message_bytes, others])
 
 ## Convert a Message to an EncodeCacheMessage.
-messageToCacheMessage : Message -> EncodeCacheMessage
-messageToCacheMessage = \message -> {
+message_to_cache_message : Message -> EncodeCacheMessage
+message_to_cache_message = \message -> {
     role: message.role,
-    content: [buildMessageContent message.content message.cached],
-    toolCalls: listToOption message.toolCalls,
-    toolCallId: strToOption message.toolCallId,
-    name: strToOption message.name,
+    content: [build_message_content(message.content, message.cached)],
+    tool_calls: list_to_option(message.tool_calls),
+    tool_call_id: str_to_option(message.tool_call_id),
+    name: str_to_option(message.name),
 }
 
 ## Convert a Message to an EncodeBasicMessage.
-messageToBasicMessage : Message -> EncodeBasicMessage
-messageToBasicMessage = \message -> {
+message_to_basic_message : Message -> EncodeBasicMessage
+message_to_basic_message = \message -> {
     role: message.role,
     content: message.content,
-    toolCalls: listToOption message.toolCalls,
-    toolCallId: strToOption message.toolCallId,
-    name: strToOption message.name,
+    tool_calls: list_to_option(message.tool_calls),
+    tool_call_id: str_to_option(message.tool_call_id),
+    name: str_to_option(message.name),
 }
 
 ## Append a system message to the list of messages.
-appendSystemMessage : List Message, Str, { cached ? Bool } -> List Message
-appendSystemMessage = \messages, text, { cached ? Bool.false } ->
-    List.append messages { role: "system", content: text, toolCalls: [], toolCallId: "", name: "", cached }
+append_system_message : List Message, Str, { cached ?? Bool } -> List Message
+append_system_message = \messages, text, { cached ?? Bool.false } ->
+    List.append(messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
 ## Append a user message to the list of messages.
-appendUserMessage : List Message, Str, { cached ? Bool } -> List Message
-appendUserMessage = \messages, text, { cached ? Bool.false } ->
-    List.append messages { role: "user", content: text, toolCalls: [], toolCallId: "", name: "", cached }
+append_user_message : List Message, Str, { cached ?? Bool } -> List Message
+append_user_message = \messages, text, { cached ?? Bool.false } ->
+    List.append(messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
 ## Append an assistant message to the list of messages.
-appendAssistantMessage : List Message, Str, { cached ? Bool } -> List Message
-appendAssistantMessage = \messages, text, { cached ? Bool.false } ->
-    List.append messages { role: "assistant", content: text, toolCalls: [], toolCallId: "", name: "", cached }
+append_assistant_message : List Message, Str, { cached ?? Bool } -> List Message
+append_assistant_message = \messages, text, { cached ?? Bool.false } ->
+    List.append(messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
