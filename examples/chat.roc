@@ -59,13 +59,14 @@ preferred_providers = Dict.empty({}) |> Dict.insert("deepseek/deepseek-r1", ["Fi
 
 # Add these constants near other constants
 api_choices =
-    Dict.empty({})
-    |> Dict.insert("1", { api: OpenAI, model: "gpt-4o-mini" })
-    |> Dict.insert("2", { api: Anthropic, model: "claude-3-5-sonnet-20241022" })
-    |> Dict.insert("3", { api: OpenRouter, model: "gpt-4o-mini" })
-    |> Dict.insert("4", { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" })
-    |> Dict.insert("5", { api: OpenRouter, model: "deepseek/deepseek-r1" })
-    |> Dict.insert("6", { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "deepseek-r1-distill-qwen-1.5b" })
+    [
+        { api: OpenAI, model: "gpt-4o-mini" },
+        { api: Anthropic, model: "claude-3-5-sonnet-20241022" },
+        { api: OpenRouter, model: "gpt-4o-mini" },
+        { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" },
+        { api: OpenRouter, model: "deepseek/deepseek-r1" },
+        { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "deepseek-r1-distill-qwen-1.5b" },
+    ]
 
 api_to_str = |api|
     when api is
@@ -76,28 +77,28 @@ api_to_str = |api|
 
 api_menu_string =
     api_choices
-    |> Dict.walk(
+    |> List.walk_with_index(
         "",
-        |string, key, value|
+        |string, value, index|
             provider_str = api_to_str(value.api)
             string
-            |> Str.concat(key)
+            |> Str.concat(Num.to_str(index + 1))
             |> Str.concat(") ")
-            |> Str.concat("${provider_str}: ")
-            |> Str.concat(value.model)
-            |> Str.concat((if key == "1" then " (default)\n" else "\n")),
+            |> Str.concat("${provider_str}: ${value.model}")
+            |> Str.concat((if index == 0 then " (default)\n" else "\n")),
     )
 
 get_client! : {} => Result Client _
 get_client! = |{}|
     Stdout.line!(api_menu_string)?
-    Stdout.write!("Choose an API (or press enter): ")?
-    choice_str =
-        Stdin.line!({})
-        |> try
+    Stdout.write!("Choose an Model (or press enter): ")?
+    choice =
+        Stdin.line!({})?
         |> |str| if str == "" then "1" else str
+        |> Str.to_u64
+        |> Result.with_default(0)
 
-    when Dict.get(api_choices, choice_str) is
+    when List.get(api_choices, Num.sub_wrap(choice, 1)) is
         Ok({ api: OpenAI, model }) ->
             api_key = Env.var!("OPENAI_API_KEY")?
             Ok(Client.new({ api: OpenAI, api_key, model }))
