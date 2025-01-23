@@ -76,7 +76,7 @@ build_http_request = |client, prompt|
             { name: "authorization", value: "bearer ${client.api_key}" },
             { name: "content-type", value: "application/json" },
         ],
-        uri: client.url,
+        uri: Client.get_api_url(client),
         body: encode_request_body(body),
         timeout_ms: client.request_timeout,
     }

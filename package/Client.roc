@@ -2,8 +2,10 @@
 module [
     Client,
     new,
+    get_api_url,
+    set_api,
+    set_api_key,
     set_model,
-    set_url,
     set_request_timeout,
     set_provider_order,
     set_temperature,
@@ -25,7 +27,7 @@ module [
 ]
 
 import json.Option exposing [Option]
-import Shared exposing [TimeoutConfig]
+import Shared exposing [TimeoutConfig, ApiTarget]
 import InternalTools exposing [Tool]
 
 ## The record used to store configuration for the OpenRouter API client.
@@ -52,9 +54,9 @@ import InternalTools exposing [Tool]
 ## }
 ## ```
 Client : {
+    api : ApiTarget,
     api_key : Str,
     model : Str,
-    url : Str,
     request_timeout : TimeoutConfig,
     provider_order : Option (List Str),
     temperature : F32,
@@ -86,9 +88,9 @@ default_url = "https://openrouter.ai/api/v1/chat/completions"
 ## ```
 new :
     {
+        api ?? ApiTarget,
         api_key : Str,
         model ?? Str,
-        url ?? Str,
         request_timeout ?? TimeoutConfig,
         provider_order ?? List Str,
         temperature ?? F32,
@@ -107,11 +109,11 @@ new :
         system ?? Str,
     }
     -> Client
-new = |{ api_key, model ?? default_model, url ?? default_url, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "" }|
+new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "" }|
     {
+        api,
         api_key,
         model,
-        url,
         request_timeout,
         provider_order: Option.none({}),
         temperature,
@@ -137,14 +139,25 @@ new = |{ api_key, model ?? default_model, url ?? default_url, request_timeout ??
     |> set_tools(tools)
     |> set_system(system)
 
+get_api_url : Client -> Str
+get_api_url = |client|
+    when client.api is
+        OpenAI -> "https://api.openai.com/v1/chat/completions"
+        Anthropic -> "https://api.anthropic.com/v1/messages"
+        OpenRouter -> "https://openrouter.ai/api/v1/chat/completions"
+        OpenAICompliant { url } -> url
+
 ## Set the model to be used for the API requests.
 ## Default: "openrouter/auto"
 set_model : Client, Str -> Client
 set_model = |client, model| { client & model }
 
 ## Set the URL to be used for the API requests. (Change with care - while the openrouter.ai API is similar to OpenAI's, there may be some unexpected differences.)
-set_url : Client, Str -> Client
-set_url = |client, url| { client & url }
+set_api : Client, ApiTarget -> Client
+set_api = |client, api| { client & api }
+
+set_api_key : Client, Str -> Client
+set_api_key = |client, api_key| { client & api_key }
 
 ## Set the request timeout for the API requests.
 ## Default: NoTimeout

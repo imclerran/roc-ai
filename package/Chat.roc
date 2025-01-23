@@ -20,17 +20,15 @@ import json.Json
 import json.Option exposing [Option]
 
 import Client
-import InternalTools exposing [ToolCall, ToolChoice]
+import InternalTools exposing [ToolCall]
 import Shared exposing [
-    RequestObject,
     ApiError,
     HttpResponse,
     drop_leading_garbage,
     option_to_str,
     option_to_list,
-    str_to_option,
-    list_to_option,
 ]
+import ChatRequest
 
 Client : Client.Client
 
@@ -53,52 +51,28 @@ DecodeMessage : {
     tool_call_id : Option Str,
 }
 
-## The structure of cached messages to be encoded to JSON for the API.
-EncodeCacheMessage : {
-    role : Str,
-    content : List CacheContent,
-    tool_calls : Option (List ToolCall),
-    name : Option Str,
-    tool_call_id : Option Str,
-}
-
-## The structure of non-cached messages to be encoded to JSON for the API.
-EncodeBasicMessage : {
-    role : Str,
-    content : Str,
-    tool_calls : Option (List ToolCall),
-    name : Option Str,
-    tool_call_id : Option Str,
-}
-
-## The message content of a cacheable message.
-CacheContent : {
-    type : Str,
-    text : Str,
-    cache_control : Option { type : Str },
-}
-
 ## The structure of the request body to be sent in the Http request.
 ChatRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
-    top_a : F32,
-    top_p : F32,
-    top_k : U64,
-    frequency_penalty : F32,
-    presence_penalty : F32,
-    repetition_penalty : F32,
-    min_p : F32,
+    # top_a : F32, # no anthropic
+    top_p : F32, 
+    # top_k : U64, # no openai
+    # frequency_penalty : F32, # no anthropic
+    # presence_penalty : F32, # no anthropic
+    # repetition_penalty : F32, # no anthropic
+    # min_p : F32, # no anthropic
     seed : Option U64,
     max_tokens : Option U64,
-    provider : {
-        order : Option (List Str),
-    },
-    models : Option (List Str),
-    route : Option Str,
+    # provider : { # no anthropic
+    #     order : Option (List Str),
+    # },
+    # models : Option (List Str), # no anthropic
+    # route : Option Str, # no anthropic
     # tools: Option (List Tools.Tool),
     # toolChoice: Option Tools.ToolChoice,
+    system: Option Str,
 }
 
 ## The structure of the JSON response body received from the OpenRouter API.
@@ -137,6 +111,25 @@ DecodeChatResponseBody : {
     },
 }
 
+DecodeAnthropicResponseBody : {
+    id: Str,
+    model: Str,
+    type: Str,
+    role: Str,
+    content: List {
+        type: Str,
+        text: Str,
+    },
+    stop_reason: Str,
+    # stop_sequence: ?
+    usage: {
+        input_tokens: U64,
+        cache_creation_input_tokens: U64,
+        cache_read_input_tokens: U64,
+        output_tokens: U64,
+    }
+}
+
 ## Initialize the OpenRouter API client with the required API key. All parameters besides apiKey are completely optional, and may be set during initialization, assigned later, or left as their defaults.
 ## ```
 ## client = Chat.new_client { apiKey: "your_openrouter_api_key" }
@@ -145,77 +138,100 @@ DecodeChatResponseBody : {
 new_client = Client.new
 
 ## Create a request object to be sent with basic-cli's Http.send using ChatML messages.
-build_http_request : Client, List Message, { tool_choice ?? ToolChoice } -> RequestObject
-build_http_request = |client, messages, { tool_choice ?? Auto }|
-    body = build_request_body(client)
-    tools =
-        when Option.get(client.tools) is
-            Some(tool_list) -> tool_list
-            None -> []
-    {
-        method: POST,
-        headers: [
-            { name: "Authorization", value: "Bearer ${client.api_key}" },
-            { name: "anthropic-version", value: "2023-06-01" },
-            { name: "x-api-key", value: client.api_key },
-            { name: "content-type", value: "application/json" },
-        ],
-        uri: client.url,
-        body: encode_request_body(body)
-        |> inject_messages(messages)
-        |> InternalTools.inject_tools(tools)
-        |> |bytes|
-            if List.is_empty tools then
-                bytes
-            else
-                InternalTools.inject_tool_choice(bytes, tool_choice),
-        timeout_ms: client.request_timeout,
-    }
-
-## Build the request body to be sent in the Http request using ChatML messages.
-build_request_body : Client -> ChatRequestBody
-build_request_body = |client| {
-    messages: [],
-    model: client.model,
-    temperature: client.temperature,
-    top_a: client.top_a,
-    top_p: client.top_p,
-    top_k: client.top_k,
-    frequency_penalty: client.frequency_penalty,
-    presence_penalty: client.presence_penalty,
-    repetition_penalty: client.repetition_penalty,
-    min_p: client.min_p,
-    seed: client.seed,
-    max_tokens: client.max_tokens,
-    provider: { order: client.provider_order },
-    models: client.models,
-    route: client.route,
-}
+# build_http_request : Client, List Message, { tool_choice ?? ToolChoice } -> RequestObject
+# build_http_request = |client, messages, { tool_choice ?? Auto }|
+#     body = build_request_body(client)
+#     tools =
+#         when Option.get(client.tools) is
+#             Some(tool_list) -> tool_list
+#             None -> []
+#     {
+#         method: POST,
+#         headers: [
+#             { name: "Authorization", value: "Bearer ${client.api_key}" },
+#             { name: "anthropic-version", value: "2023-06-01" },
+#             { name: "x-api-key", value: client.api_key },
+#             { name: "content-type", value: "application/json" },
+#         ],
+#         uri: client.url,
+#         body: encode_request_body(body)
+#         |> inject_messages(messages)
+#         |> inject_tools(tools)
+#         |> inject_tool_choice(tool_choice, tools),
+#         timeout_ms: client.request_timeout,
+#     }
+build_http_request = ChatRequest.build_http_request
 
 ## Decode the JSON response body to a ChatML style request.
 decode_response : List U8 -> Result ChatResponseBody _
 decode_response = |body_bytes|
     cleaned_body = drop_leading_garbage(body_bytes)
+    when decode_default_response(cleaned_body) is
+        Ok response -> Ok response
+        Err _ -> decode_anthropic_response(cleaned_body)
+
+decode_default_response : List U8 -> Result ChatResponseBody _
+decode_default_response = |body_bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeChatResponseBody
-    decoded = Decode.from_bytes_partial(cleaned_body, decoder)
-    decoded.result
-    |> Result.map_ok(
-        |internal_response| {
-            id: internal_response.id,
-            model: internal_response.model,
-            object: internal_response.object,
-            created: internal_response.created,
-            choices: internal_response.choices
-            |> List.map(
-                |{ index, message: decode_message, finish_reason: internal_finish_reason }| {
-                    index,
-                    message: convert_decode_message(decode_message),
-                    finish_reason: option_to_str(internal_finish_reason),
-                },
-            ),
-            usage: internal_response.usage,
-        },
+    decoded = Decode.from_bytes_partial(body_bytes, decoder)
+    decoded.result |> Result.map_ok(from_decode_response)
+
+decode_anthropic_response : List U8 -> Result ChatResponseBody _
+decode_anthropic_response = |body_bytes|
+    decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
+    decoded : Decode.DecodeResult DecodeAnthropicResponseBody
+    decoded = Decode.from_bytes_partial(body_bytes, decoder)
+    decoded.result |> Result.map_ok(from_anthropic_response)
+
+from_decode_response : DecodeChatResponseBody -> ChatResponseBody
+from_decode_response = |internal_response| 
+    {
+        id: internal_response.id,
+        model: internal_response.model,
+        object: internal_response.object,
+        created: internal_response.created,
+        choices: internal_response.choices
+        |> List.map(
+            |{ index, message: decode_message, finish_reason: internal_finish_reason }| {
+                index,
+                message: convert_decode_message(decode_message),
+                finish_reason: option_to_str(internal_finish_reason),
+            },
+        ),
+        usage: internal_response.usage,
+    }
+
+from_anthropic_response : DecodeAnthropicResponseBody -> ChatResponseBody
+from_anthropic_response = |internal_response|
+    {
+        id: internal_response.id,
+        model: internal_response.model,
+        object: internal_response.type,
+        created: 0,
+        choices: choices_from_anthropic(internal_response),
+        usage: {
+            prompt_tokens: internal_response.usage.input_tokens,
+            completion_tokens: internal_response.usage.output_tokens,
+            total_tokens: internal_response.usage.input_tokens + internal_response.usage.output_tokens,
+        }
+    }
+
+choices_from_anthropic : DecodeAnthropicResponseBody -> List { index: U8, message: Message, finish_reason: Str }
+choices_from_anthropic = |response| 
+    response.content |> List.map_with_index(
+        |{ type: _, text }, index| {
+            index: Num.to_u8(index),
+            message: {
+                role: "assistant",
+                content: text,
+                tool_calls: [],
+                name: "",
+                tool_call_id: "",
+                cached: Bool.false,
+            },
+            finish_reason: response.stop_reason,
+        }
     )
 
 ## Convert an DecodeMessage to a Message.
@@ -227,14 +243,6 @@ convert_decode_message = |decode_message| {
     tool_call_id: option_to_str(decode_message.tool_call_id),
     name: option_to_str(decode_message.name),
     cached: Bool.false,
-}
-
-## Build a CacheContent object for a message.
-build_message_content : Str, Bool -> CacheContent
-build_message_content = |text, cached| {
-    type: "text",
-    text,
-    cache_control: if cached then Option.some({ type: "ephemeral" }) else Option.none({}),
 }
 
 ## Decode the JSON response body to the first message in the list of choices.
@@ -302,66 +310,6 @@ encode_request_body = |body|
             },
         ),
     )
-
-## Inject the messages list into the request body, by encoding the message to the correct format based on the cached flag.
-inject_messages : List U8, List Message -> List U8
-inject_messages = |body_bytes, messages|
-    inject_at = List.walk_with_index_until(
-        body_bytes,
-        0,
-        |_, _, i|
-            when List.drop_first(body_bytes, i) is
-                ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', '[', ..] -> Break((i + 11))
-                ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', ' ', '[', ..] -> Break((i + 12))
-                _ -> Continue(0),
-    )
-
-    if inject_at == 0 then
-        body_bytes
-    else
-        { before, others } = List.split_at(body_bytes, inject_at)
-        message_bytes =
-            messages
-            |> List.map(
-                |message|
-                    if message.cached and message.tool_call_id == "" then
-                        bytes =
-                            message_to_cache_message(message)
-                            |> Encode.to_bytes(Json.utf8_with({ field_name_mapping: SnakeCase, empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }) }))
-                            |> List.append(',')
-                        bytes
-                        |> List.drop_at(List.len(bytes) - 3) # drop the last comma before the closing bracket
-                    else
-                        bytes =
-                            message_to_basic_message(message)
-                            |> Encode.to_bytes(Json.utf8_with({ field_name_mapping: SnakeCase, empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }) }))
-                            |> List.append(',')
-                        bytes
-                        |> List.drop_at(List.len(bytes) - 3), # drop the last comma before the closing bracket
-            )
-            |> List.join
-            |> List.drop_last(1)
-        List.join([before, message_bytes, others])
-
-## Convert a Message to an EncodeCacheMessage.
-message_to_cache_message : Message -> EncodeCacheMessage
-message_to_cache_message = |message| {
-    role: message.role,
-    content: [build_message_content(message.content, message.cached)],
-    tool_calls: list_to_option(message.tool_calls),
-    tool_call_id: str_to_option(message.tool_call_id),
-    name: str_to_option(message.name),
-}
-
-## Convert a Message to an EncodeBasicMessage.
-message_to_basic_message : Message -> EncodeBasicMessage
-message_to_basic_message = |message| {
-    role: message.role,
-    content: message.content,
-    tool_calls: list_to_option(message.tool_calls),
-    tool_call_id: str_to_option(message.tool_call_id),
-    name: str_to_option(message.name),
-}
 
 ## Append a system message to the list of messages.
 append_system_message : List Message, Str, { cached ?? Bool } -> List Message

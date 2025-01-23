@@ -5,6 +5,8 @@ module [
     RequestObject,
     ResponseFormat,
     HttpResponse,
+    Message,
+    ApiTarget,
     drop_leading_garbage,
     decode_error_response,
     option_to_str,
@@ -22,7 +24,7 @@ TimeoutConfig : [TimeoutMilliseconds U64, NoTimeout]
 
 ## The request object to be sent with basic-cli's Http.send
 RequestObject : {
-    method : [POST],
+    method : [POST, GET],
     headers : List { name : Str, value : Str },
     uri : Str,
     body : List U8,
@@ -51,6 +53,27 @@ HttpResponse : {
     headers : List { name : Str, value : Str },
     body : List U8,
 }
+
+Message : {
+    role : Str,
+    content : Str,
+    tool_calls : List ToolCall,
+    name : Str,
+    tool_call_id : Str,
+    cached : Bool,
+}
+
+## A call from the model to a tool.
+ToolCall : {
+    id : Str,
+    type : Str,
+    function : {
+        name : Str,
+        arguments : Str,
+    },
+}
+
+ApiTarget : [OpenRouter, OpenAI, Anthropic, OpenAICompliant { url: Str }]
 
 ## Drop leading garbage characters from the response body
 drop_leading_garbage : List U8 -> List U8
