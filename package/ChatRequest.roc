@@ -287,6 +287,8 @@ build_message_content = |text, cached| {
     cache_control: if cached then Option.some({ type: "ephemeral" }) else Option.none({}),
 }
 
+## TODO: This is very inefficient - plan API changes to move messages into the client. 
+## - Then each time a system message is appended when using anthropic, update the system message in the client
 update_system_message : Client, List Message -> Client
 update_system_message = |client, messages|
     when client.api is
