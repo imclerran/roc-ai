@@ -1,6 +1,6 @@
-app [main] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.15.0/SlwdbJ-3GR7uBWQo6zlmYWNYOxnvo8r6YABXD-45UOw.tar.br",
-    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.6/tzLZlg6lNmgU4uYtQ_zCmSr1AptHxZ8VBfE-O9JCudw.tar.br",
+app [main!] {
+    cli: platform "../../basic-cli/platform/main.roc",
+    ansi: "../../roc-ansi/package/main.roc",
     ai: "../package/main.roc",
 }
 
@@ -9,50 +9,47 @@ import cli.Stdin
 import cli.Http
 import cli.Env
 
-import ai.Chat exposing [Message]
-import ai.Tools { sendHttpReq: Http.send }
-import ai.Toolkit.OpenWeatherMap { sendHttpReq: Http.send, getEnvVar: Env.var } exposing [geocoding, currentWeather]
-import ai.Toolkit.Serper { sendHttpReq: Http.send, getEnvVar: Env.var } exposing [serper]
-import ansi.Core as Ansi
+import ai.Chat
+import ai.Tools { send_http_req!: Http.send! }
+import ai.Toolkit.OpenWeatherMap { send_http_req!: Http.send!, get_env_var!: Env.var! } exposing [geocoding, current_weather]
+import ai.Toolkit.Serper { send_http_req!: Http.send!, get_env_var!: Env.var! } exposing [serper]
+import ansi.ANSI as Ansi
 
-main : Task {} _
-main =
-    apiKey = getApiKey!
-    client = Chat.initClient { apiKey, model: "openai/gpt-4o", tools: [geocoding.tool, currentWeather.tool, serper.tool] }
-    Stdout.line! ("Assistant: Ask me about the weather, or anything on the web!\n" |> Ansi.color { fg: Standard Cyan })
-    Task.loop! { previousMessages: [] } \{ previousMessages } -> ## Task.loop function must be inline due to roc issue #7116
-        Stdout.write! "You: "
-        messages = Chat.appendUserMessage previousMessages Stdin.line! {}
-        response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-        updatedMessages = Chat.updateMessageList response messages |> Tools.handleToolCalls! client toolHandlerMap
-        printLastMessage! updatedMessages
-        Task.ok (Step { previousMessages: updatedMessages })
-
-## Get the API key from the environmental variable
-getApiKey : Task Str _
-getApiKey =
-    Task.attempt (Env.var "OPENROUTER_API_KEY") \keyResult ->
-        when keyResult is
-            Ok key -> Task.ok key
-            Err VarNotFound -> crash "OPENROUTER_API_KEY environment variable not set"
+main! = |_|
+    api_key = Env.var!("OPENROUTER_API_KEY")?
+    client = Chat.new_client({ api_key, model: "openai/gpt-4o", tools: [geocoding.tool, current_weather.tool, serper.tool] })
+    Stdout.line!(("Assistant: Ask me about the weather, or anything on the web!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
+    loop!(client, [])
+    
+loop! : Chat.Client, List Chat.Message => Result {} _
+loop! = |client, previous_messages|
+    Stdout.write!("You: ")?
+    messages = Chat.append_user_message(previous_messages, Stdin.line!({})?, {})
+    response = Http.send!(Chat.build_http_request(client, messages, {}))?
+    messages2 = Chat.update_message_list(response, messages)
+    messages3 = Tools.handle_tool_calls!(messages2, client, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(messages3)?
+    loop!( client, messages3 )
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
-printLastMessage : List Message -> Task {} _
-printLastMessage = \messages ->
-    when List.last messages is
-        Ok { role, content } if role == "assistant" ->
-            Stdout.line! ("\nAssistant: $(content)\n" |> Ansi.color { fg: Standard Magenta })
+# print_last_message : List Message => Result {} _
+print_last_message! = |messages|
+    when List.last(messages) is
+        Ok({ role, content }) if role == "assistant" ->
+            Stdout.line!(("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Magenta) })))
 
-        Ok { role, content } if role == "system" ->
-            Stdout.line! ("\nAssistant: $(content)\n" |> Ansi.color { fg: Standard Cyan })
+        Ok({ role, content }) if role == "system" ->
+            Stdout.line!(("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Cyan) })))
 
-        _ -> Task.ok {}
+        _ -> Ok({})
 
 ## Map of tool names to tool handlers
-toolHandlerMap : Dict Str (Str -> Task Str _)
-toolHandlerMap =
-    Dict.fromList [
-        (geocoding.name, geocoding.handler),
-        (currentWeather.name, currentWeather.handler),
-        (serper.name, serper.handler),
-    ]
+tool_handler_map : Dict Str (Str => Result Str _)
+tool_handler_map =
+    Dict.from_list(
+        [
+            (geocoding.name, geocoding.handler!),
+            (current_weather.name, current_weather.handler!),
+            (serper.name, serper.handler!),
+        ],
+    )

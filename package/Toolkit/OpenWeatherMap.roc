@@ -11,11 +11,11 @@
 ## client = Client.init { apiKey, model: "tool-capable/model", tools }
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
-## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## response = try Http.send (Chat.buildHttpRequest client messages {})
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { sendHttpReq, getEnvVar } -> [geocoding, currentWeather]
+module { send_http_req!, get_env_var! } -> [geocoding, current_weather]
 
 import json.Json
 import InternalTools exposing [Tool]
@@ -23,17 +23,17 @@ import InternalTools exposing [Tool]
 ## Expose name, handler and tool for geocoding.
 ##
 ## This tool will allow the model to get the correct latitude and longitude for a location, for use with the currentWeather tool.
-geocoding: { name : Str, handler : Str -> Task Str *, tool : Tool }
+geocoding : { name : Str, handler! : Str => Result Str *, tool : Tool }
 geocoding = {
-    name: geocodingTool.function.name,
-    handler: geocodingHandler,
-    tool: geocodingTool,
+    name: geocoding_tool.function.name,
+    handler!: geocoding_handler!,
+    tool: geocoding_tool,
 }
 
 ## Tool definition for the geocoding function
-geocodingTool : Tool
-geocodingTool =
-    queryParam = {
+geocoding_tool : Tool
+geocoding_tool =
+    query_param = {
         name: "q",
         type: "string",
         description:
@@ -49,103 +49,101 @@ geocodingTool =
         """,
         required: Bool.true,
     }
-    InternalTools.buildTool "geocoding" "Geocode a location using the openweathermap.org API" [queryParam]
+    InternalTools.build_tool("geocoding", "Geocode a location using the openweathermap.org API", [query_param])
 
 ## Handler for the geocoding tool
-geocodingHandler : Str -> Task Str _
-geocodingHandler = \args ->
+geocoding_handler! : Str => Result Str _
+geocoding_handler! = |args|
     decoded : Decode.DecodeResult { q : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { q } ->
-            apiKey = getEnvVar! "OPENWEATHERMAP_API_KEY"
+        Ok({ q }) ->
+            api_key = get_env_var!("OPENWEATHERMAP_API_KEY")?
             request = {
-                method: Get,
-                headers: [],
-                url: "http://api.openweathermap.org/geo/1.0/direct?q=$(q)&appid=$(apiKey)",
-                mimeType: "application/json",
+                method: GET,
+                headers: [{ name: "Content-Type", value: "application/json" }],
+                uri: "http://api.openweathermap.org/geo/1.0/direct?q=${q}&appid=${api_key}",
                 body: [],
-                timeout: NoTimeout,
+                timeout_ms: NoTimeout,
             }
-            when sendHttpReq request |> Task.result! is
-                Ok response ->
+            when send_http_req!(request) is
+                Ok(response) ->
                     response.body
-                    |> Str.fromUtf8
-                    |> Result.withDefault "Failed to decode API response"
-                    |> Task.ok
+                    |> Str.from_utf8
+                    |> Result.with_default("Failed to decode API response")
+                    |> Ok
 
-                Err _ ->
+                Err(_) ->
                     "Failed to get response from openweathermap.org"
-                    |> Task.ok
+                    |> Ok
 
 ## Expose name, handler and tool for currentWeather
 ##
 ## This tool will allow the model to get the current weather for a location.
-currentWeather: { name : Str, handler : Str -> Task Str _, tool : Tool }
-currentWeather = {
-    name: currentWeatherTool.function.name,
-    handler: currentWeatherHandler,
-    tool: currentWeatherTool,
+current_weather : { name : Str, handler! : Str => Result Str _, tool : Tool }
+current_weather = {
+    name: current_weather_tool.function.name,
+    handler!: current_weather_handler!,
+    tool: current_weather_tool,
 }
 
 ## Tool definition for the currentWeather function
-currentWeatherTool : Tool
-currentWeatherTool =
-    latParam = {
+current_weather_tool : Tool
+current_weather_tool =
+    lat_param = {
         name: "lat",
         type: "number",
         description: "The latitude of the location to get the current weather for. Decimal from -90 to 90.",
         required: Bool.true,
     }
-    lonParam = {
+    lon_param = {
         name: "lon",
         type: "number",
         description: "The longitude of the location to get the current weather for. Decimal from -180 to 180.",
         required: Bool.true,
     }
-    unitsParam = {
+    units_param = {
         name: "units",
         type: "string",
-        description: 
+        description:
         """
         The units to return the weather in. Can be 'standard', 'metric', or 'imperial'. 
         Standard is Kelvin, metric is Celsius, and imperial is Fahrenheit.
         """,
         required: Bool.true,
     }
-    InternalTools.buildTool "currentWeather" "Get the current weather for a location using the openweathermap.org API" [latParam, lonParam, unitsParam]
+    InternalTools.build_tool("currentWeather", "Get the current weather for a location using the openweathermap.org API", [lat_param, lon_param, units_param])
 
 ## Handler for the currentWeather tool
-currentWeatherHandler : Str -> Task Str _
-currentWeatherHandler = \args ->
+current_weather_handler! : Str => Result Str _
+current_weather_handler! = |args|
     decoded : Decode.DecodeResult { lat : F32, lon : F32, units : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { lat, lon, units } ->
+        Ok({ lat, lon, units }) ->
             exclude = "minutely,hourly,daily,alerts"
-            apiKey = getEnvVar! "OPENWEATHERMAP_API_KEY"
+            api_key = get_env_var!("OPENWEATHERMAP_API_KEY")?
             request = {
-                method: Get,
-                headers: [],
-                url: "https://api.openweathermap.org/data/3.0/onecall?lat=$(Num.toStr lat)&lon=$(Num.toStr lon)&exclude=$(exclude)&units=$(units)&appid=$(apiKey)",
-                mimeType: "application/json",
+                method: GET,
+                headers: [{ name: "Content-Type", value: "application/json" }],
+                uri: "https://api.openweathermap.org/data/3.0/onecall?lat=${Num.to_str(lat)}&lon=${Num.to_str(lon)}&exclude=${exclude}&units=${units}&appid=${api_key}",
                 body: [],
-                timeout: NoTimeout,
+                timeout_ms: NoTimeout,
             }
-            when sendHttpReq request |> Task.result! is
-                Ok response ->
+            when send_http_req!(request) is
+                Ok(response) ->
                     response.body
-                    |> Str.fromUtf8
-                    |> Result.withDefault "Failed to decode API response"
-                    |> Task.ok
+                    |> Str.from_utf8
+                    |> Result.with_default("Failed to decode API response")
+                    |> Ok
 
-                Err _ ->
+                Err(_) ->
                     "Failed to get response from openweathermap.org"
-                    |> Task.ok
+                    |> Ok
 

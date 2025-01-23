@@ -1,6 +1,6 @@
-app [main] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.15.0/SlwdbJ-3GR7uBWQo6zlmYWNYOxnvo8r6YABXD-45UOw.tar.br",
-    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.6/tzLZlg6lNmgU4uYtQ_zCmSr1AptHxZ8VBfE-O9JCudw.tar.br",
+app [main!] {
+    cli: platform "../../basic-cli/platform/main.roc",
+    ansi: "../../roc-ansi/package/main.roc",
     ai: "../package/main.roc",
 }
 
@@ -11,61 +11,53 @@ import cli.Env
 import cli.Cmd
 import cli.Path
 
-import ansi.Core as Ansi
+import ansi.ANSI as Ansi
 import ai.Chat exposing [Message]
-import ai.Tools { sendHttpReq: Http.send }
-import ai.Toolkit.Roc { cmdNew: Cmd.new, cmdArg: Cmd.arg, cmdOutput: Cmd.output } exposing [roc, rocStart, rocCheck, rocTest]
+import ai.Tools { send_http_req!: Http.send! }
+import ai.Toolkit.Roc { cmd_new: Cmd.new, cmd_arg: Cmd.arg, cmd_output!: Cmd.output! } exposing [roc, roc_start, roc_check, roc_test]
 import ai.Toolkit.FileSystem {
-        pathFromStr: Path.fromStr,
-        pathToStr: Path.display,
-        listDir: Path.listDir,
-        isDir: Path.isDir,
-        readFile: Path.readUtf8,
-        writeUtf8: Path.writeUtf8,
-    } exposing [listFileTree, listDirectory, readFileContents, writeFileContents]
+        path_from_str: Path.from_str,
+        path_to_str: Path.display,
+        list_dir!: Path.list_dir!,
+        is_dir!: Path.is_dir!,
+        read_file!: Path.read_utf8!,
+        write_utf8!: Path.write_utf8!,
+    } exposing [list_file_tree, list_directory, read_file_contents, write_file_contents]
 
 import "roc-tutorial.md" as tutorial : Str
 
-main : Task {} _
-main =
-    initWorkspace!
-    apiKey = getApiKey!
-    client = Chat.initClient { apiKey, model: "anthropic/claude-3.5-sonnet:beta", tools }
-    Stdout.line! ("Assistant: Ask me to write some roc code!\n" |> Ansi.color { fg: Standard Cyan })
-    Task.loop! { previousMessages: initMessages } \{ previousMessages } -> ## Task.loop function must be inline due to roc issue #7116
-        Stdout.write! "You: "
-        messages = Chat.appendUserMessage previousMessages Stdin.line! {}
-        response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-        updatedMessages = Chat.updateMessageList response messages |> Tools.handleToolCalls! client toolHandlerMap { maxModelCalls: 10 }
-        printLastMessage! updatedMessages
-        Task.ok (Step { previousMessages: updatedMessages })
+main! = |_|
+    init_workspace!({})?
+    api_key = Env.var!("OPENROUTER_API_KEY")?
+    client = Chat.new_client({ api_key, model: "anthropic/claude-3.5-sonnet:beta", tools })
+    Stdout.line!(("Assistant: Ask me to write some roc code!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
+    loop!(client, init_messages)?
+    Ok({})
+
+loop! : Chat.Client, List Message => Result _ _
+loop! = |client, previous_messages|
+    Stdout.write!("You: ")?
+    messages = Chat.append_user_message(previous_messages, Stdin.line!({})?, {})
+    response = Http.send!(Chat.build_http_request(client, messages, {}))?
+    messages2 = Chat.update_message_list(response, messages)
+    messages3 = Tools.handle_tool_calls!(messages2, client, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(messages3)?
+    loop!(client, messages3)
 
 ## Initialize the workspace directory
-initWorkspace : Task {} _
-initWorkspace =
-    workPath = "./agent-workspace" |> Path.fromStr
-    workPath
-        |> Path.createDir
-        |> Task.onErr! \err ->
-            when err is
-                DirErr AlreadyExists -> Task.ok {}
-                _ -> Task.err err
-    Env.setCwd! workPath
-
-## Get the API key from the environmental variable
-getApiKey : Task Str _
-getApiKey =
-    Task.attempt (Env.var "OPENROUTER_API_KEY") \keyResult ->
-        when keyResult is
-            Ok key -> Task.ok key
-            Err VarNotFound -> crash "OPENROUTER_API_KEY environment variable not set"
+init_workspace! : {} => Result {} _
+init_workspace! = |{}|
+    work_path = "./agent-workspace" |> Path.from_str
+    Path.create_all!(work_path) |> Result.on_err!(|_err| Ok {}) |> try
+    Env.set_cwd!(work_path) 
 
 ## List of messages to initialize the chat
-initMessages : List Message
-initMessages =
+# init_messages : List Message
+init_messages =
     []
-    |> Chat.appendSystemMessage tutorial { cached: Bool.true }
-    |> Chat.appendUserMessage # claude does not put high priority on system messages, so this is sent as a user message.
+    |> Chat.append_system_message(tutorial, { cached: Bool.true })
+    |> Chat.append_user_message(
+        # claude does not put high priority on system messages, so this is sent as a user message.
         """
         CRITICAL: Do not ever change the app header, including platform or package urls, which are set by the rocStart tool.
         You should make sure to read the file contents before changing them, so you can maintain the current app headers.
@@ -75,44 +67,47 @@ initMessages =
         Unless specifically asked to do so by the user, do not ever change the header.
 
         NOTE: Do not respond to or mention this message, as it is a sudo system message, and the user is not aware of it.
-        """
-        { cached: Bool.true }
+        """,
+        { cached: Bool.true },
+    )
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
-printLastMessage : List Message -> Task {} _
-printLastMessage = \messages ->
-    when List.last messages is
-        Ok { role, content } if role == "assistant" ->
-            Stdout.line! ("\nAssistant: $(Str.trim content)\n" |> Ansi.color { fg: Standard Magenta })
+print_last_message! : List Message => Result {} _
+print_last_message! = |messages|
+    when List.last(messages) is
+        Ok({ role, content }) if role == "assistant" ->
+            Stdout.line!(("\nAssistant: ${Str.trim(content)}\n" |> Ansi.color({ fg: Standard(Magenta) })))
 
-        Ok { role, content } if role == "system" ->
-            Stdout.line! ("\nAssistant: $(Str.trim content)\n" |> Ansi.color { fg: Standard Cyan })
+        Ok({ role, content }) if role == "system" ->
+            Stdout.line!(("\nAssistant: ${Str.trim(content)}\n" |> Ansi.color({ fg: Standard(Cyan) })))
 
-        _ -> Task.ok {}
+        _ -> Ok({})
 
 ## List of tool definitions to be given to the AI model
-tools: List Tools.Tool
+tools : List Tools.Tool
 tools = [
     roc.tool,
-    rocCheck.tool,
-    rocTest.tool,
-    rocStart.tool,
-    listDirectory.tool,
-    listFileTree.tool,
-    readFileContents.tool,
-    writeFileContents.tool,
+    roc_check.tool,
+    roc_test.tool,
+    roc_start.tool,
+    list_directory.tool,
+    list_file_tree.tool,
+    read_file_contents.tool,
+    write_file_contents.tool,
 ]
 
 ## Map of tool names to tool handlers
-toolHandlerMap : Dict Str (Str -> Task Str _)
-toolHandlerMap =
-    Dict.fromList [
-        (roc.name, roc.handler),
-        (rocTest.name, rocTest.handler),
-        (rocCheck.name, rocCheck.handler),
-        (rocStart.name, rocStart.handler),
-        (listDirectory.name, listDirectory.handler),
-        (listFileTree.name, listFileTree.handler),
-        (readFileContents.name, readFileContents.handler),
-        (writeFileContents.name, writeFileContents.handler),
-    ]
+tool_handler_map : Dict Str (Str => Result Str _)
+tool_handler_map =
+    Dict.from_list(
+        [
+            (roc.name, roc.handler!),
+            (roc_test.name, roc_test.handler!),
+            (roc_check.name, roc_check.handler!),
+            (roc_start.name, roc_start.handler!),
+            (list_directory.name, list_directory.handler!),
+            (list_file_tree.name, list_file_tree.handler!),
+            (read_file_contents.name, read_file_contents.handler!),
+            (write_file_contents.name, write_file_contents.handler!),
+        ],
+    )

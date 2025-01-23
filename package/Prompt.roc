@@ -12,7 +12,7 @@ module [
     encode_request_body,
     format_llama_prompt,
     format_llama_prompt_with_history,
-    init_client,
+    new_client,
     update_llama_conversation_history,
 ]
 
@@ -68,20 +68,22 @@ new_client = Client.new
 
 ## Create a request object to be sent with basic-cli's Http.send using a prompt string
 build_http_request : Client, Str -> RequestObject
-build_http_request = \client, prompt ->
+build_http_request = |client, prompt|
     body = build_request_body(client, prompt)
     {
-        method: Post,
-        headers: [{ key: "Authorization", value: "Bearer $(client.api_key)" }],
-        url: client.url,
-        mime_type: "application/json",
+        method: POST,
+        headers: [
+            { name: "authorization", value: "bearer ${client.api_key}" },
+            { name: "content-type", value: "application/json" },
+        ],
+        uri: client.url,
         body: encode_request_body(body),
-        timeout: client.request_timeout,
+        timeout_ms: client.request_timeout,
     }
 
 ## Build the request body to be sent in the Http request using a prompt string
 build_request_body : Client, Str -> PromptRequestBody
-build_request_body = \client, prompt -> {
+build_request_body = |client, prompt| {
     prompt,
     model: client.model,
     temperature: client.temperature,
@@ -101,27 +103,29 @@ build_request_body = \client, prompt -> {
 
 ## Encode the request body to be sent in the Http request
 encode_request_body : PromptRequestBody -> List U8
-encode_request_body = \body ->
+encode_request_body = |body|
     Encode.to_bytes(
         body,
-        Json.utf8With({
-            fieldNameMapping: SnakeCase,
-            emptyEncodeAsNull: Json.encodeAsNullOption({ record: Bool.false }),
-        }),
+        Json.utf8_with(
+            {
+                field_name_mapping: SnakeCase,
+                empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }),
+            },
+        ),
     )
 
 ## Decode the JSON response to a prompt string request
 decode_response : List U8 -> Result PromptResponseBody _
-decode_response = \body_bytes ->
+decode_response = |body_bytes|
     cleaned_body = Shared.drop_leading_garbage(body_bytes)
-    decoder = Json.utf8With({ fieldNameMapping: SnakeCase })
+    decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult PromptResponseBody
     decoded = Decode.from_bytes_partial(cleaned_body, decoder)
     decoded.result
 
 ## Decode the JSON response body to the first message in the list of choices
 decode_top_text_choice : List U8 -> Result Str [ApiError ApiError, DecodingError, NoChoices, BadJson Str]
-decode_top_text_choice = \response_body_bytes ->
+decode_top_text_choice = |response_body_bytes|
     when decode_response(response_body_bytes) is
         Ok(body) ->
             when List.get(body.choices, 0) is
@@ -156,7 +160,7 @@ llama_exchange_end_tag = "</s>\n"
 ## [/INST]
 ## ```
 format_llama_prompt : { prompt : Str, sys_message ?? Str } -> Str
-format_llama_prompt = \{ prompt, sys_message ?? "" } ->
+format_llama_prompt = |{ prompt, sys_message ?? "" }|
     when sys_message is
         "" ->
             llama_prompt_start_tag
@@ -184,7 +188,7 @@ format_llama_prompt = \{ prompt, sys_message ?? "" } ->
 ## [/INST]
 ## ```
 format_llama_prompt_with_history : Str, Str -> Str
-format_llama_prompt_with_history = \prompt, conversation_history ->
+format_llama_prompt_with_history = |prompt, conversation_history|
     conversation_history
     |> Str.concat(llama_exchange_start_tag)
     |> Str.concat(prompt)
@@ -202,7 +206,7 @@ format_llama_prompt_with_history = \prompt, conversation_history ->
 ## <s>Nth exchange</s>
 ## ```
 update_llama_conversation_history : { prompt_str : Str, bot_reply : Str, conversation_history ?? Str } -> Str
-update_llama_conversation_history = \{ prompt_str, bot_reply, conversation_history ?? "" } ->
+update_llama_conversation_history = |{ prompt_str, bot_reply, conversation_history ?? "" }|
     conversation_history
     |> Str.concat(llama_exchange_start_tag)
     |> Str.concat(prompt_str)

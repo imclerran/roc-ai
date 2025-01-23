@@ -9,33 +9,33 @@
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
 ## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { getUtcNow, utcToNanos } -> [utcNow]
+module { get_utc_now!, utc_to_nanos } -> [utc_now]
 
-import InternalTools exposing [Tool, buildTool]
+import InternalTools exposing [Tool, build_tool]
 import iso.DateTime
 
 ## Expose name, handler and tool for utcNow.
 ##
 ## This tool allows the model to get the current UTC time as an ISO 8601 string.
-utcNow : { name : Str, handler : Str -> Task Str *, tool : Tool }
-utcNow = {
+utc_now : { name : Str, handler! : Str => Result Str *, tool : Tool }
+utc_now = {
     name: tool.function.name,
-    handler,
+    handler!,
     tool,
 }
 
 ## Tool definition for the utcNow function
 tool : Tool
-tool = buildTool "utcNow" "Get the current UTC time as an ISO 8601 string" []
+tool = build_tool("utcNow", "Get the current UTC time as an ISO 8601 string", [])
 
 ## Handler for the utcNow tool
-handler : Str -> Task Str _
-handler = \_args ->
-    getUtcNow! {}
-        |> utcToNanos
-        |> DateTime.fromNanosSinceEpoch
-        |> DateTime.toIsoStr
-        |> Task.ok
+handler! : Str => Result Str _
+handler! = |_args|
+    get_utc_now!({})
+    |> utc_to_nanos
+    |> DateTime.from_nanos_since_epoch
+    |> DateTime.to_iso_str
+    |> Ok

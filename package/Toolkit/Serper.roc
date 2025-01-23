@@ -9,53 +9,55 @@
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
 ## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
+module { send_http_req!, get_env_var! } -> [serper]
 
-module { sendHttpReq, getEnvVar } -> [serper]
-
-import InternalTools exposing [Tool, buildTool]
+import InternalTools exposing [Tool, build_tool]
 
 ## Expose name, handler and tool for serper.
 ##
 ## This tool allows the model to search google using the serper.dev API.
-serper : { name : Str, handler : Str -> Task Str *, tool : Tool }
+serper : { name : Str, handler! : Str => Result Str *, tool : Tool }
 serper = {
     name: tool.function.name,
-    handler,
+    handler!,
     tool,
 }
 
 ## Tool definition for the serper function
 tool : Tool
-tool = 
-    queryParam = {
+tool =
+    query_param = {
         name: "q",
         type: "string",
         description: "The search query to send to the serper.dev API",
         required: Bool.true,
     }
-    buildTool "serper" "Access to the serper.dev google search API" [queryParam]
+    build_tool("serper", "Access to the serper.dev google search API", [query_param])
 
 ## Handler for the serper tool
-handler : Str -> Task Str _
-handler = \args ->
-    apiKey = getEnvVar! "SERPER_API_KEY"
+handler! : Str => Result Str _
+handler! = |args|
+    api_key = try get_env_var!("SERPER_API_KEY")
     request = {
-        method: Post,
-        headers: [{ key: "X-API-KEY", value: apiKey }],
-        url: "https://google.serper.dev/search",
-        mimeType: "application/json",
-        body: args |> Str.toUtf8,
-        timeout: NoTimeout,
+        method: POST,
+        headers: [
+            { name: "X-API-KEY", value: api_key },
+            { name: "Content-Type", value: "application/json" },
+        ],
+        uri: "https://google.serper.dev/search",
+        body: args |> Str.to_utf8,
+        timeout_ms: NoTimeout,
     }
-    when sendHttpReq request |> Task.result! is
-        Ok response -> 
-            response.body 
-            |> Str.fromUtf8 
-            |> Result.withDefault "Failed to decode API response"
-            |> Task.ok
-        Err _ -> 
+    when send_http_req!(request) is
+        Ok(response) ->
+            response.body
+            |> Str.from_utf8
+            |> Result.with_default("Failed to decode API response")
+            |> Ok
+
+        Err(_) ->
             "Failed to get response from serper.dev"
-            |> Task.ok
+            |> Ok

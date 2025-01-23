@@ -21,6 +21,7 @@ module [
     set_tools,
     default_model,
     default_url,
+    set_system,
 ]
 
 import json.Option exposing [Option]
@@ -70,6 +71,7 @@ Client : {
     models : Option (List Str),
     route : Option Str,
     tools : Option (List Tool),
+    system: Option Str,
 }
 
 ## Default model to use for API requests. This defaults to the openrouter/auto model router.
@@ -102,9 +104,10 @@ new :
         models ?? List Str,
         route ?? [UseFallback, NoFallback],
         tools ?? List Tool,
+        system ?? Str,
     }
     -> Client
-new = \{ api_key, model ?? default_model, url ?? default_url, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [] } ->
+new = |{ api_key, model ?? default_model, url ?? default_url, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "" }|
     {
         api_key,
         model,
@@ -124,6 +127,7 @@ new = \{ api_key, model ?? default_model, url ?? default_url, request_timeout ??
         models: Option.none({}),
         route: Option.none({}),
         tools: Option.none({}),
+        system: Option.none({}),
     }
     |> set_provider_order(provider_order)
     |> set_seed(seed)
@@ -131,25 +135,26 @@ new = \{ api_key, model ?? default_model, url ?? default_url, request_timeout ??
     |> set_models(models)
     |> set_route(route)
     |> set_tools(tools)
+    |> set_system(system)
 
 ## Set the model to be used for the API requests.
 ## Default: "openrouter/auto"
 set_model : Client, Str -> Client
-set_model = \client, model -> { client & model }
+set_model = |client, model| { client & model }
 
 ## Set the URL to be used for the API requests. (Change with care - while the openrouter.ai API is similar to OpenAI's, there may be some unexpected differences.)
 set_url : Client, Str -> Client
-set_url = \client, url -> { client & url }
+set_url = |client, url| { client & url }
 
 ## Set the request timeout for the API requests.
 ## Default: NoTimeout
 set_request_timeout : Client, TimeoutConfig -> Client
-set_request_timeout = \client, request_timeout -> { client & request_timeout }
+set_request_timeout = |client, request_timeout| { client & request_timeout }
 
 ## Set the provider order for the API requests.
 ## Default: [] - use all providers.
 set_provider_order : Client, List Str -> Client
-set_provider_order = \client, provider_order ->
+set_provider_order = |client, provider_order|
     provider_order_option =
         when provider_order is
             [] -> Option.none({})
@@ -160,54 +165,54 @@ set_provider_order = \client, provider_order ->
 ## Range: [0.0, 2.0]
 ## Default: 1.0
 set_temperature : Client, F32 -> Client
-set_temperature = \client, temperature -> { client & temperature }
+set_temperature = |client, temperature| { client & temperature }
 
 ## Set the top_p for the API requests.
 ## Range: [0.0, 1.0]
 ## Default: 1.0
 set_top_p : Client, F32 -> Client
-set_top_p = \client, top_p -> { client & top_p }
+set_top_p = |client, top_p| { client & top_p }
 
 ## Set the top_k for the API requests.
 ## Range: [0, Num.maxU64]
 ## Default: 0
 set_top_k : Client, U64 -> Client
-set_top_k = \client, top_k -> { client & top_k }
+set_top_k = |client, top_k| { client & top_k }
 
 ## Set the frequency penalty for the API requests.
 ## Range: [-2.0, 2.0]
 ## Default: 0.0
 set_frequency_penalty : Client, F32 -> Client
-set_frequency_penalty = \client, frequency_penalty -> { client & frequency_penalty }
+set_frequency_penalty = |client, frequency_penalty| { client & frequency_penalty }
 
 ## Set the presence penalty for the API requests.
 ## Range: [-2.0, 2.0]
 ## Default: 0.0
 set_presence_penalty : Client, F32 -> Client
-set_presence_penalty = \client, presence_penalty -> { client & presence_penalty }
+set_presence_penalty = |client, presence_penalty| { client & presence_penalty }
 
 ## Set the repetition penalty for the API requests.
 ## Range: [0.0, 2.0]
 ## Default: 1.0
 set_repetition_penalty : Client, F32 -> Client
-set_repetition_penalty = \client, repetition_penalty -> { client & repetition_penalty }
+set_repetition_penalty = |client, repetition_penalty| { client & repetition_penalty }
 
 ## Set the min_p for the API requests.
 ## Range: [0.0, 1.0]
 ## Default: 0.0
 set_min_p : Client, F32 -> Client
-set_min_p = \client, min_p -> { client & min_p }
+set_min_p = |client, min_p| { client & min_p }
 
 ## Set the top_a for the API requests.
 ## Range: [0.0, 1.0]
 ## Default: 0.0
 set_top_a : Client, F32 -> Client
-set_top_a = \client, top_a -> { client & top_a }
+set_top_a = |client, top_a| { client & top_a }
 
 ## Set the seed for the API requests. (This is for OpenAI models only)
 ## Default: 0 - random seed
 set_seed : Client, U64 -> Client
-set_seed = \client, seed ->
+set_seed = |client, seed|
     seed_option =
         when seed is
             0 -> Option.none({})
@@ -218,7 +223,7 @@ set_seed = \client, seed ->
 ## Range: [1, contextLength]
 ## Default: 0 == no limit
 set_max_tokens : Client, U64 -> Client
-set_max_tokens = \client, max_tokens ->
+set_max_tokens = |client, max_tokens|
     max_tokens_option =
         when max_tokens is
             0 -> Option.none({})
@@ -236,7 +241,7 @@ set_max_tokens = \client, max_tokens ->
 ## https://openrouter.ai/models/openrouter/auto
 ## Default: []
 set_models : Client, List Str -> Client
-set_models = \client, models ->
+set_models = |client, models|
     models_option =
         if
             List.is_empty(models)
@@ -251,7 +256,7 @@ set_models = \client, models ->
 ## https://openrouter.ai/docs#model-routing
 ## Default: NoFallback
 set_route : Client, [UseFallback, NoFallback] -> Client
-set_route = \client, route ->
+set_route = |client, route|
     route_option =
         when route is
             NoFallback -> Option.none({})
@@ -261,7 +266,7 @@ set_route = \client, route ->
 ## Set the list of tools available for models to use to handle requests.
 ## Default: []
 set_tools : Client, List Tool -> Client
-set_tools = \client, tools ->
+set_tools = |client, tools|
     tools_option =
         if
             List.is_empty(tools)
@@ -270,3 +275,11 @@ set_tools = \client, tools ->
         else
             Option.some(tools)
     { client & tools: tools_option }
+
+## Set the system message to be used in for all requests. This is specific to anthropic's API, since it does not use system role messages.
+## Default: ""
+set_system : Client, Str -> Client
+set_system = |client, system|
+    when system is
+        "" -> { client & system: Option.none({}) }
+        _ -> { client & system: Option.some(system) }

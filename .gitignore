@@ -2,3 +2,4 @@
 examples/*
 !examples/*.roc
 !examples/*.md
+python
