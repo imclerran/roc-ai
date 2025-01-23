@@ -56,15 +56,14 @@ initialize_messages =
 preferred_providers = Dict.empty({}) |> Dict.insert("deepseek/deepseek-r1", ["Fireworks", "Together"])
 
 # Add these constants near other constants
-api_choices =
-    [
-        { api: OpenAI, model: "gpt-4o-mini" },
-        { api: Anthropic, model: "claude-3-5-sonnet-20241022" },
-        { api: OpenRouter, model: "gpt-4o-mini" },
-        { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" },
-        { api: OpenRouter, model: "deepseek/deepseek-r1" },
-        { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "deepseek-r1-distill-qwen-1.5b" },
-    ]
+api_choices = [
+    { api: OpenAI, model: "gpt-4o-mini" },
+    { api: Anthropic, model: "claude-3-5-sonnet-20241022" },
+    { api: OpenRouter, model: "gpt-4o-mini" },
+    { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" },
+    { api: OpenRouter, model: "deepseek/deepseek-r1" },
+    { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "deepseek-r1-distill-qwen-1.5b" },
+]
 
 api_to_str = |api|
     when api is
@@ -90,7 +89,7 @@ api_menu_string =
 get_client! : {} => Result Client _
 get_client! = |{}|
     Stdout.line!(api_menu_string)?
-    Stdout.write!("Choose an Model (or press enter): ")?
+    Stdout.write!("Choose a Model (or press enter): ")?
     choice =
         Stdin.line!({})?
         |> |str| if str == "" then "1" else str
@@ -132,10 +131,9 @@ color_by_number = |n|
         2 -> |str| Ansi.color(str, { fg: Standard(Green) })
         3 -> |str| Ansi.color(str, { fg: Standard(Cyan) })
         4 -> |str| Ansi.color(str, { fg: Standard(Blue) })
-        5 -> |str| Ansi.color(str, { fg: Standard(Magenta) })
-        _ -> |str| str
+        _ -> |str| Ansi.color(str, { fg: Standard(Magenta) })
 
 print_choice! = |n, api, model|
     colorize = color_by_number(n)
     Stdout.line!("Using model: ${model |> colorize}")?
-    Stdout.line!("From: ${api |> api_to_str |> colorize }\n")
+    Stdout.line!("From: ${api |> api_to_str |> colorize}\n")
