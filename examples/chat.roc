@@ -15,8 +15,6 @@ import cli.Stdout
 
 main! = |_|
     client = get_client!({})?
-    Stdout.line!("Using model: ${client.model |> Ansi.color({ fg: Standard(Magenta) })}")?
-    Stdout.line!("From: ${client.api |> api_to_str |> Ansi.color({ fg: Standard(Magenta) })}\n")?
     Stdout.line!("Enter your questions below, or type 'Goodbye' to exit")?
     loop!(client, initialize_messages)?
     "\nAssistant:  I have been a good chatbot. Goodbye! 😊"
@@ -81,10 +79,11 @@ api_menu_string =
         "",
         |string, value, index|
             provider_str = api_to_str(value.api)
+            colorize = color_by_number(index)
             string
             |> Str.concat(Num.to_str(index + 1))
             |> Str.concat(") ")
-            |> Str.concat("${provider_str}: ${value.model}")
+            |> Str.concat(colorize("${provider_str}: ${value.model}"))
             |> Str.concat((if index == 0 then " (default)\n" else "\n")),
     )
 
@@ -97,22 +96,27 @@ get_client! = |{}|
         |> |str| if str == "" then "1" else str
         |> Str.to_u64
         |> Result.with_default(0)
+        |> Num.sub_wrap(1)
 
-    when List.get(api_choices, Num.sub_wrap(choice, 1)) is
+    when List.get(api_choices, choice) is
         Ok({ api: OpenAI, model }) ->
             api_key = Env.var!("OPENAI_API_KEY")?
+            print_choice!(choice, OpenAI, model)?
             Ok(Client.new({ api: OpenAI, api_key, model }))
 
         Ok({ api: Anthropic, model }) ->
             api_key = Env.var!("ANTHROPIC_API_KEY")?
+            print_choice!(choice, Anthropic, model)?
             Ok(Client.new({ api: Anthropic, api_key, model, max_tokens: 4096 }))
 
         Ok({ api: OpenRouter, model }) ->
             provider_order = Dict.get(preferred_providers, model) |> Result.with_default([])
             api_key = Env.var!("OPENROUTER_API_KEY")?
+            print_choice!(choice, OpenRouter, model)?
             Ok(Client.new({ api: OpenRouter, api_key, model, provider_order }))
 
         Ok({ api: OpenAICompliant { url }, model }) ->
+            print_choice!(choice, OpenAICompliant { url }, model)?
             Ok(Client.new({ api: OpenAICompliant { url }, api_key: "", model }))
 
         Err _ ->
@@ -120,3 +124,18 @@ get_client! = |{}|
             |> Ansi.color({ fg: Standard(Yellow) })
             |> Stdout.line!?
             get_client!({})
+
+color_by_number = |n|
+    when (n % 6) is
+        0 -> |str| Ansi.color(str, { fg: Standard(Red) })
+        1 -> |str| Ansi.color(str, { fg: Standard(Yellow) })
+        2 -> |str| Ansi.color(str, { fg: Standard(Green) })
+        3 -> |str| Ansi.color(str, { fg: Standard(Cyan) })
+        4 -> |str| Ansi.color(str, { fg: Standard(Blue) })
+        5 -> |str| Ansi.color(str, { fg: Standard(Magenta) })
+        _ -> |str| str
+
+print_choice! = |n, api, model|
+    colorize = color_by_number(n)
+    Stdout.line!("Using model: ${model |> colorize}")?
+    Stdout.line!("From: ${api |> api_to_str |> colorize }\n")
