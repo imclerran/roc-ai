@@ -184,7 +184,7 @@ build_http_request = |client, { tool_choice ?? Auto }|
         headers: get_headers(client),
         uri: get_api_url(client.api),
         body: build_request_body(update_system_message(client, client.messages))
-        |> inject_messages(compatible_messages(client.messages, client.api))
+        |> inject_messages(to_compatible_messages(client.messages, client.api))
         |> inject_tools(tools)
         |> inject_tool_choice(tool_choice, tools),
         timeout_ms: client.request_timeout,
@@ -387,8 +387,8 @@ update_system_message = |client, messages|
             Client.set_system(client, new_system)
         _ -> client
 
-compatible_messages : List Message, Shared.ApiTarget -> List Message
-compatible_messages = |messages, api| 
+to_compatible_messages : List Message, Shared.ApiTarget -> List Message
+to_compatible_messages = |messages, api| 
     when api is
         Anthropic -> List.drop_if(messages, |message| message.role == "system")
         _ -> messages
@@ -506,20 +506,6 @@ decode_error_response = Shared.decode_error_response
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
 update_message_list : Client, HttpResponse-> Result Client _
 update_message_list = |client, response|
-    # if response.status >= 200 and response.status <= 299 then
-    #     when decode_top_message_choice(response.body) is
-    #         Ok(message) -> List.append(messages, message)
-    #         Err(ApiError(err)) -> append_system_message(messages, "API error: ${Inspect.to_str(err)}", {}) # err.message
-    #         Err(NoChoices) -> append_system_message(messages, "No choices in API response", {})
-    #         Err(BadJson(str)) -> append_system_message(messages, "Could not decode JSON response:\n${str}", {})
-    #         Err(DecodingError) -> append_system_message(messages, "Error decoding API response", {})
-    #     else
-
-    # message =
-    #     Str.from_utf8(response.body)
-    #     |> Result.with_default("")
-    #     |> Str.with_prefix("Http error: ${Num.to_str(response.status)}\n")
-    # append_system_message(messages, message, {})
     if response.status >= 200 and response.status <= 299 then
         message = decode_top_message_choice(response.body)?
         updated = List.append(client.messages, message)
@@ -527,21 +513,6 @@ update_message_list = |client, response|
     else
         reponse_body = Str.from_utf8(response.body) |> Result.with_default("")
         Err(HttpError { status: response.status, body: reponse_body })
-
-# ## Append a system message to the list of messages.
-# append_system_message : List Message, Str, { cached ?? Bool } -> List Message
-# append_system_message = |messages, text, { cached ?? Bool.false }|
-#     List.append(messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
-
-# ## Append a user message to the list of messages.
-# append_user_message : List Message, Str, { cached ?? Bool } -> List Message
-# append_user_message = |messages, text, { cached ?? Bool.false }|
-#     List.append(messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
-
-# ## Append an assistant message to the list of messages.
-# append_assistant_message : List Message, Str, { cached ?? Bool } -> List Message
-# append_assistant_message = |messages, text, { cached ?? Bool.false }|
-#     List.append(messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
 ## Append a system message to the list of messages.
 append_system_message : Client, Str, { cached ?? Bool } -> Client

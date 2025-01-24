@@ -25,7 +25,7 @@ import InternalTools exposing [Tool, build_tool]
 ## Expose name, handler and tool for roc.
 ##
 ## This tool will allow the model to run `roc` for a roc file.
-roc : { name : Str, handler! : Str => Result Str *, tool : Tool }
+roc : { name : Str, handler! : Str => Result Str _, tool : Tool }
 roc = {
     name: roc_tool.function.name,
     handler!: roc_handler!,
@@ -65,7 +65,7 @@ roc_handler! = |args|
 ## Expose name, handler and tool for rocCheck.
 ##
 ## This tool will allow the model to run `roc check` for a Roc file.
-roc_check : { name : Str, handler! : Str => Result Str *, tool : Tool }
+roc_check : { name : Str, handler! : Str => Result Str _, tool : Tool }
 roc_check = {
     name: roc_check_tool.function.name,
     handler!: roc_check_handler!,
@@ -106,7 +106,7 @@ roc_check_handler! = |args|
 ## Expose name, handler and tool for rocTest.
 ##
 ## This tool will allow the model to run `roc test` for a Roc file.
-roc_test : { name : Str, handler! : Str => Result Str *, tool : Tool }
+roc_test : { name : Str, handler! : Str => Result Str _, tool : Tool }
 roc_test = {
     name: roc_test_tool.function.name,
     handler!: roc_test_handler!,
@@ -147,7 +147,7 @@ roc_test_handler! = |args|
 ## Expose name, handler and tool for rocStart.
 ##
 ## This tool will allow the model to use `roc-start` to initialize a new Roc application.
-roc_start : { name : Str, handler! : Str => Result Str *, tool : Tool }
+roc_start : { name : Str, handler! : Str => Result Str _, tool : Tool }
 roc_start = {
     name: roc_start_tool.function.name,
     handler!: roc_start_handler!,

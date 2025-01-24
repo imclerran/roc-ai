@@ -48,21 +48,21 @@ Message : {
 ## Using the given toolHandlerMap, check the last message for tool calls, call all the tools in the tool call list, send the results back to the model, and handle any additional tool calls that may have been generated. If or when no more tool calls are present, return the updated list of messages.
 ##
 ## The Dict maps function tool names strings to roc functions that take their arguments as a JSON string, parse the json, and return the tool's response.
-handle_tool_calls! : List Message, Client, Dict Str (Str => Result Str _), { max_model_calls ?? U32 } => Result (List Message) _
-handle_tool_calls! = |messages, client, tool_handler_map, { max_model_calls ?? Num.max_u32 }|
-    when List.last(messages) is
+handle_tool_calls! : Client, Dict Str (Str => Result Str _), { max_model_calls ?? U32 } => Result Client _
+handle_tool_calls! = |client, tool_handler_map, { max_model_calls ?? Num.max_u32 }|
+    when List.last(client.messages) is
         Ok({ role, tool_calls }) if role == "assistant" ->
-            if List.is_empty(tool_calls) or max_model_calls == 0 then
-                Ok(messages)
+            if List.is_empty(tool_calls) then #or max_model_calls == 0 then
+                Ok(client)
             else
                 tc = if max_model_calls > 1 then { tool_choice: Auto } else { tool_choice: None }
                 tool_messages = dispatch_tool_calls!(tool_calls, tool_handler_map)?
-                messages_with_tools = List.join([messages, tool_messages])
-                response = send_http_req!(Chat.build_http_request(client, messages_with_tools, tc))?
-                messages_with_response = Chat.update_message_list(response, messages_with_tools)
-                handle_tool_calls!(messages_with_response, client, tool_handler_map, { max_model_calls: max_model_calls - 1 })
+                client2 = Client.set_messages(client, List.join[client.messages, tool_messages])
+                response = send_http_req!(Chat.build_http_request(client2, tc))?
+                client3 = Chat.update_message_list(client2, response)?
+                handle_tool_calls!(client3, tool_handler_map, { max_model_calls: max_model_calls - 1 })
 
-        _ -> Ok(messages)
+        _ -> Ok(client)
 
 ## Dispatch the tool calls to the appropriate tool handler functions and return the list of tool messages.
 ##

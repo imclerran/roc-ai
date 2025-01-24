@@ -26,7 +26,7 @@ base_url = "https://en.wikipedia.org/w/api.php"
 ## Expose name, handler and tool for the wikipediaSarch.
 ##
 ## This tool allows the model to search Wikipedia for a given query.
-wikipedia_search : { name : Str, handler! : Str => Result Str *, tool : Tool }
+wikipedia_search : { name : Str, handler! : Str => Result Str _, tool : Tool }
 wikipedia_search = {
     name: wikipedia_search_tool.function.name,
     handler!: wikipedia_search_handler!,
@@ -86,7 +86,7 @@ wikipedia_search_handler! = |args|
 ## Expose name, handler and tool for the wikipediaParse tool.
 ##
 ## This tool allows the model to parse a Wikipedia article.
-wikipedia_parse : { name : Str, handler! : Str => Result Str *, tool : Tool }
+wikipedia_parse : { name : Str, handler! : Str => Result Str _, tool : Tool }
 wikipedia_parse = {
     name: wikipedia_parse_tool.function.name,
     handler!: wikipedia_parse_handler!,

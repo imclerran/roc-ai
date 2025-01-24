@@ -28,7 +28,7 @@ import json.Json
 import InternalTools exposing [Tool, build_tool]
 
 ## Expose name, handler and tool for listDirectory.
-list_directory : { name : Str, handler! : Str => Result Str *, tool : Tool }
+list_directory : { name : Str, handler! : Str => Result Str _, tool : Tool }
 list_directory = {
     name: list_directory_tool.function.name,
     handler!: list_directory_handler!,
@@ -70,7 +70,7 @@ list_directory_handler! = |args|
 ## Expose name, handler and tool for listFileTree.
 ##
 ## This tool will allow the model to list the contents of a directory, and all subdirectories.
-list_file_tree : { name : Str, handler! : Str => Result Str *, tool : Tool }
+list_file_tree : { name : Str, handler! : Str => Result Str _, tool : Tool }
 list_file_tree = {
     name: list_file_tree_tool.function.name,
     handler!: list_file_tree_handler!,
@@ -107,7 +107,7 @@ list_file_tree_handler! = |args|
                 file_tree_helper!(dir_contents, "", 0)
 
 ## Recursive helper function for listFileTreeHandler
-file_tree_helper! : List path, Str, U64 => Result Str _
+file_tree_helper! : List _, Str, U64 => Result Str _
 file_tree_helper! = |paths, accumulation, depth|
     prepend_newline = |str| if Str.is_empty(str) then str else Str.concat("\n", str)
     append_newline = |str| if Str.is_empty(str) then str else Str.concat(str, "\n")
@@ -131,7 +131,7 @@ file_tree_helper! = |paths, accumulation, depth|
 ## Expose name, handler and tool for readFileContents.
 ##
 ## This tool will allow the model to read the contents of a file.
-read_file_contents : { name : Str, handler! : Str => Result Str *, tool : Tool }
+read_file_contents : { name : Str, handler! : Str => Result Str _, tool : Tool }
 read_file_contents = {
     name: read_file_contents_tool.function.name,
     handler!: read_file_contents_handler!,
@@ -173,7 +173,7 @@ read_file_contents_handler! = |args|
 ## Expose name, handler and tool for writeFileContents.
 ##
 ## This tool will allow the model to write content to a file.
-write_file_contents : { name : Str, handler! : Str => Result Str *, tool : Tool }
+write_file_contents : { name : Str, handler! : Str => Result Str _, tool : Tool }
 write_file_contents = {
     name: write_file_contents_tool.function.name,
     handler!: write_file_contents_handler!,

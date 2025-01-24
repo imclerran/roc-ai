@@ -23,7 +23,7 @@ import Shared exposing [url_encode]
 ## Expose name, handler and tool for shortAnswer.
 ##
 ## This tool allows the model to ask Wolfram Alpha a question and get a short answer.
-wolfram_short_answer : { name : Str, handler! : Str => Result Str *, tool : Tool }
+wolfram_short_answer : { name : Str, handler! : Str => Result Str _, tool : Tool }
 wolfram_short_answer = {
     name: short_answer_tool.function.name,
     handler!: short_answer_handler!,

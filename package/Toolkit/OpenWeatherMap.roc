@@ -23,7 +23,7 @@ import InternalTools exposing [Tool]
 ## Expose name, handler and tool for geocoding.
 ##
 ## This tool will allow the model to get the correct latitude and longitude for a location, for use with the currentWeather tool.
-geocoding : { name : Str, handler! : Str => Result Str *, tool : Tool }
+geocoding : { name : Str, handler! : Str => Result Str _, tool : Tool }
 geocoding = {
     name: geocoding_tool.function.name,
     handler!: geocoding_handler!,
@@ -37,16 +37,7 @@ geocoding_tool =
         name: "q",
         type: "string",
         description:
-        """
-        City name, state code (only for the US) and country code divided by comma. 
-        Please use ISO 3166 country codes. city name, state code, and country code
-        are all required for US cities, and city name and country code are required
-        for all other cities. Do not leave out the 2 letter state code for US cities.
-        For example, to get the location of New York City, you would use 
-        "Chicago,IL,US". For London, you would use "London,GB". You should also make sure 
-        that any spaces in city names are URL encoded. Last, make sure there are no spaces
-        between the city name, state code, and country code.
-        """,
+        "City name, state code (only for the US) and country code divided by comma. Please use ISO 3166 country codes. city name, state code, and country code are all required for US cities, and city name and country code are required for all other cities. Do not leave out the 2 letter state code for US cities. For example, to get the location of New York City, you would use 'Chicago,IL,US'. For London, you would use 'London,GB'. You should also make sure that any spaces in city names are URL encoded. Last, make sure there are no spaces between the city name, state code, and country code.",
         required: Bool.true,
     }
     InternalTools.build_tool("geocoding", "Geocode a location using the openweathermap.org API", [query_param])
@@ -109,10 +100,7 @@ current_weather_tool =
         name: "units",
         type: "string",
         description:
-        """
-        The units to return the weather in. Can be 'standard', 'metric', or 'imperial'. 
-        Standard is Kelvin, metric is Celsius, and imperial is Fahrenheit.
-        """,
+        "The units to return the weather in. Can be 'standard', 'metric', or 'imperial'. Standard is Kelvin, metric is Celsius, and imperial is Fahrenheit.",
         required: Bool.true,
     }
     InternalTools.build_tool("currentWeather", "Get the current weather for a location using the openweathermap.org API", [lat_param, lon_param, units_param])

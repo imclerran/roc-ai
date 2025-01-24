@@ -20,7 +20,7 @@ import iso.DateTime
 ## Expose name, handler and tool for utcNow.
 ##
 ## This tool allows the model to get the current UTC time as an ISO 8601 string.
-utc_now : { name : Str, handler! : Str => Result Str *, tool : Tool }
+utc_now : { name : Str, handler! : Str => Result Str _, tool : Tool }
 utc_now = {
     name: tool.function.name,
     handler!,

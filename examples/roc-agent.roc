@@ -30,19 +30,20 @@ main! = |_|
     init_workspace!({})?
     api_key = Env.var!("OPENROUTER_API_KEY")?
     client = Chat.new_client({ api_key, model: "anthropic/claude-3.5-sonnet:beta", tools })
+        |> init_messages
     Stdout.line!(("Assistant: Ask me to write some roc code!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
-    loop!(client, init_messages)?
+    loop!(client)?
     Ok({})
 
-loop! : Chat.Client, List Message => Result _ _
-loop! = |client, previous_messages|
+loop! : Chat.Client => Result _ _
+loop! = |client|
     Stdout.write!("You: ")?
-    messages = Chat.append_user_message(previous_messages, Stdin.line!({})?, {})
-    response = Http.send!(Chat.build_http_request(client, messages, {}))?
-    messages2 = Chat.update_message_list(response, messages)
-    messages3 = Tools.handle_tool_calls!(messages2, client, tool_handler_map, { max_model_calls: 10 })?
-    print_last_message!(messages3)?
-    loop!(client, messages3)
+    client2 = Chat.append_user_message(client, Stdin.line!({})?, {})
+    response = Http.send!(Chat.build_http_request(client, {}))?
+    client3 = Chat.update_message_list(client2, response)?
+    client4 = Tools.handle_tool_calls!(client3, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(client4.messages)?
+    loop!(client4)
 
 ## Initialize the workspace directory
 init_workspace! : {} => Result {} _
@@ -52,9 +53,9 @@ init_workspace! = |{}|
     Env.set_cwd!(work_path) 
 
 ## List of messages to initialize the chat
-# init_messages : List Message
-init_messages =
-    []
+# init_messages : Client -> Client
+init_messages = |client|
+    client
     |> Chat.append_system_message(tutorial, { cached: Bool.true })
     |> Chat.append_user_message(
         # claude does not put high priority on system messages, so this is sent as a user message.

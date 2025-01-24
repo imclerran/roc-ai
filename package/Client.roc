@@ -24,6 +24,7 @@ module [
     default_model,
     default_url,
     set_system,
+    set_messages,
     # append_system_message,
     # append_user_message,
     # append_assistant_message,
@@ -302,25 +303,5 @@ set_system = |client, system|
         "" -> { client & system: Option.none({}) }
         _ -> { client & system: Option.some(system) }
 
-# ## Append a system message to the list of messages.
-# append_system_message : Client, Str, { cached ?? Bool } -> Client
-# append_system_message = |client, text, { cached ?? Bool.false }|
-#     when client.api is
-#         Anthropic ->
-#             updated = Str.join_with([option_to_str(client.system), text], "\n\n")
-#             { client & system: Option.some(updated) }
-#         _ ->
-#             updated = List.append(client.messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
-#             { client & messages: updated }
-
-# ## Append a user message to the list of messages.
-# append_user_message : Client, Str, { cached ?? Bool } -> Client
-# append_user_message = |client, text, { cached ?? Bool.false }|
-#     updated = List.append(client.messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
-#     { client & messages: updated }
-
-# ## Append an assistant message to the list of messages.
-# append_assistant_message : Client, Str, { cached ?? Bool } -> Client
-# append_assistant_message = |client, text, { cached ?? Bool.false }|
-#     updated = List.append(client.messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
-#     { client & messages: updated }
+set_messages : Client, List Message -> Client
+set_messages = |client, messages| { client & messages }

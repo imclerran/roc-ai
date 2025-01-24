@@ -16,20 +16,23 @@ import ai.Toolkit.Serper { send_http_req!: Http.send!, get_env_var!: Env.var! } 
 import ansi.ANSI as Ansi
 
 main! = |_|
-    api_key = Env.var!("OPENROUTER_API_KEY")?
-    client = Chat.new_client({ api_key, model: "openai/gpt-4o", tools: [geocoding.tool, current_weather.tool, serper.tool] })
+    # api_key = Env.var!("OPENROUTER_API_KEY")?
+    api_key = Env.var!("OPENAI_API_KEY")?
+    client = Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o", tools: [geocoding.tool, current_weather.tool, serper.tool] })
     Stdout.line!(("Assistant: Ask me about the weather, or anything on the web!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
-    loop!(client, [])
+    loop!(client)
     
-loop! : Chat.Client, List Chat.Message => Result {} _
-loop! = |client, previous_messages|
+loop! : Chat.Client => Result {} _
+loop! = |client|
     Stdout.write!("You: ")?
-    messages = Chat.append_user_message(previous_messages, Stdin.line!({})?, {})
-    response = Http.send!(Chat.build_http_request(client, messages, {}))?
-    messages2 = Chat.update_message_list(response, messages)
-    messages3 = Tools.handle_tool_calls!(messages2, client, tool_handler_map, { max_model_calls: 10 })?
-    print_last_message!(messages3)?
-    loop!( client, messages3 )
+    client2 = Chat.append_user_message(client, Stdin.line!({})?, {})
+    req = Chat.build_http_request(client2, {})
+    dbg (req.body |> Str.from_utf8)
+    response = Http.send!(req)?
+    client3 = Chat.update_message_list(client2, response)?
+    client4 = Tools.handle_tool_calls!(client3, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(client4.messages)?
+    loop!( client4 )
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
 # print_last_message : List Message => Result {} _
