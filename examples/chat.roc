@@ -42,16 +42,6 @@ print_last_message! = |messages|
 
         _ -> Ok({})
 
-## Initialize the message list with a system message
-# initialize_messages =
-#     []
-#     |> Chat.append_system_message(
-#         """
-#         You are a helpful assistant, who answers questions in a concise and friendly manner. If you do not have knowledge about the on the users inquires about, you should politely tell them you cannot help."
-#         """,
-#         {},
-#     )
-
 system_message = "You are a helpful assistant, who answers questions in a concise and friendly manner. If you do not have knowledge about the on the users inquires about, you should politely tell them you cannot help."
 
 ## Define the preferred providers for each model

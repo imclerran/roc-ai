@@ -346,8 +346,9 @@ inject_messages = |body_bytes, messages|
                             message_to_basic_message(message)
                             |> Encode.to_bytes(Json.utf8_with({ field_name_mapping: SnakeCase, empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }) }))
                             |> List.append(',')
-                        bytes
-                        |> List.drop_at(List.len(bytes) - 3), # drop the last comma before the closing bracket
+                        when bytes is
+                            [.., ',', '}', ','] -> List.drop_at(bytes, List.len(bytes) - 3) # drop the last comma before the closing bracket
+                            _ -> bytes,
             )
             |> List.join
             |> List.drop_last(1)

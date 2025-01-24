@@ -1,4 +1,4 @@
-module { send_http_req! } -> [Tool, ToolCall, build_tool, handle_tool_calls!, dispatch_tool_calls!]
+module { send_http_req! } -> [Tool, ToolCall, build_tool, handle_tool_calls!, dispatch_tool_calls!, call_tool!]
 
 # import json.Option exposing [Option]
 import InternalTools
