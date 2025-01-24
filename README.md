@@ -56,4 +56,5 @@ For complete example apps, including a full chatbot app with tool use, see the e
 [last_commit_badge]: https://img.shields.io/github/last-commit/imclerran/roc-openrouter?logo=git&logoColor=lightgrey
 [last_commit_link]: https://github.com/imclerran/roc-openrouter/commits/main/
 [version_badge]: https://img.shields.io/github/v/release/imclerran/roc-ai
-[version_link]: https://github.com/imclerran/roc-ai/releases/latest
+[version_link]: https://github.com/imclerran/roc-ai/releases/tag/v0.8
+<!--[version_link]: https://github.com/imclerran/roc-ai/releases/latest -->
