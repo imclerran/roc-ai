@@ -24,7 +24,7 @@ This package is still in WIP 🛠️ stages, so the interface may be subject to 
 ## Known issues:
 - Tool use is currently not supported with the anthropic API, 
     - this is due to missing support in Roc for decoding json dictionaries [roc#5294](https://github.com/roc-lang/roc/issues/5294)
-    - __Workaround__ Anthropic models can be accessed through OpenRouter, with full tool calling support
+    - __Workaround:__ Anthropic models can be accessed through OpenRouter, with full tool calling support
 - Prompt caching has currently only be been tested through OpenRouter
 
 
