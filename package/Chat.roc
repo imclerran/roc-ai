@@ -86,7 +86,11 @@ DecodeAnthropicResponseBody : {
     role: Str,
     content: List {
         type: Str,
-        text: Str,
+        text: Option Str,
+        id: Option Str,
+        name: Option Str,
+        # input: Dict Str Str, no decoding ability for Dict
+        # TODO: Anthropic tool use blocked on Dict decoding
     },
     stop_reason: Str,
     # stop_sequence: ?
@@ -185,8 +189,8 @@ build_http_request = |client, { tool_choice ?? Auto }|
         uri: get_api_url(client.api),
         body: build_request_body(update_system_message(client, client.messages))
         |> inject_messages(to_compatible_messages(client.messages, client.api))
-        |> inject_tools(tools)
-        |> inject_tool_choice(tool_choice, tools),
+        |> inject_tools(tools, client.api)
+        |> inject_tool_choice(tool_choice, tools, client.api),
         timeout_ms: client.request_timeout,
     }
 
@@ -292,18 +296,22 @@ openrouter_request_body = |client|
         ),
     )
 
-inject_tools : List U8, List Tool -> List U8
-inject_tools = |bytes, tools|
+inject_tools : List U8, List Tool, _ -> List U8
+inject_tools = |bytes, tools, api|
     if List.is_empty tools then
         bytes
     else
-        InternalTools.inject_tools(bytes, tools)
+        when api is
+            Anthropic -> InternalTools.inject_tools_anthropic(bytes, tools)
+            _ -> InternalTools.inject_tools(bytes, tools)
 
-inject_tool_choice = |bytes, tool_choice, tools|
+inject_tool_choice = |bytes, tool_choice, tools, api|
     if List.is_empty tools then
         bytes
     else
-        InternalTools.inject_tool_choice(bytes, tool_choice)
+        when api is
+            Anthropic -> InternalTools.inject_tool_choice_anthropic(bytes, tool_choice)
+            _ -> InternalTools.inject_tool_choice(bytes, tool_choice)
      
 ## Inject the messages list into the request body, by encoding the message to the correct format based on the cached flag.
 inject_messages : List U8, List Message -> List U8
@@ -462,7 +470,7 @@ choices_from_anthropic = |response|
             index: Num.to_u8(index),
             message: {
                 role: "assistant",
-                content: text,
+                content: Shared.option_to_str(text),
                 tool_calls: [],
                 name: "",
                 tool_call_id: "",
