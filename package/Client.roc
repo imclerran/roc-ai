@@ -24,10 +24,13 @@ module [
     default_model,
     default_url,
     set_system,
+    # append_system_message,
+    # append_user_message,
+    # append_assistant_message,
 ]
 
 import json.Option exposing [Option]
-import Shared exposing [TimeoutConfig, ApiTarget]
+import Shared exposing [TimeoutConfig, ApiTarget, Message]
 import InternalTools exposing [Tool]
 
 ## The record used to store configuration for the OpenRouter API client.
@@ -74,6 +77,7 @@ Client : {
     route : Option Str,
     tools : Option (List Tool),
     system: Option Str,
+    messages: List Message,
 }
 
 ## Default model to use for API requests. This defaults to the openrouter/auto model router.
@@ -109,7 +113,7 @@ new :
         system ?? Str,
     }
     -> Client
-new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "" }|
+new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "", messages ?? [] }|
     {
         api,
         api_key,
@@ -130,6 +134,7 @@ new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? 
         route: Option.none({}),
         tools: Option.none({}),
         system: Option.none({}),
+        messages,
     }
     |> set_provider_order(provider_order)
     |> set_seed(seed)
@@ -296,3 +301,26 @@ set_system = |client, system|
     when system is
         "" -> { client & system: Option.none({}) }
         _ -> { client & system: Option.some(system) }
+
+# ## Append a system message to the list of messages.
+# append_system_message : Client, Str, { cached ?? Bool } -> Client
+# append_system_message = |client, text, { cached ?? Bool.false }|
+#     when client.api is
+#         Anthropic ->
+#             updated = Str.join_with([option_to_str(client.system), text], "\n\n")
+#             { client & system: Option.some(updated) }
+#         _ ->
+#             updated = List.append(client.messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+#             { client & messages: updated }
+
+# ## Append a user message to the list of messages.
+# append_user_message : Client, Str, { cached ?? Bool } -> Client
+# append_user_message = |client, text, { cached ?? Bool.false }|
+#     updated = List.append(client.messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+#     { client & messages: updated }
+
+# ## Append an assistant message to the list of messages.
+# append_assistant_message : Client, Str, { cached ?? Bool } -> Client
+# append_assistant_message = |client, text, { cached ?? Bool.false }|
+#     updated = List.append(client.messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+#     { client & messages: updated }

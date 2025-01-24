@@ -1,6 +1,5 @@
 ## The Chat module contains the functions and types needed to use the ChatML formatted chat completion API. It includes the Message type, ChatRequestBody and ChatResponseBody types, and various functions for creating and handling API requests.
 module [
-    ChatRequestBody,
     ChatResponseBody,
     Message,
     Client,
@@ -12,7 +11,6 @@ module [
     decode_response,
     update_message_list,
     decode_top_message_choice,
-    encode_request_body,
     new_client,
 ]
 
@@ -20,27 +18,21 @@ import json.Json
 import json.Option exposing [Option]
 
 import Client
-import InternalTools exposing [ToolCall]
+import InternalTools exposing [ToolCall, ToolChoice, Tool]
 import Shared exposing [
     ApiError,
     HttpResponse,
+    RequestObject,
     drop_leading_garbage,
     option_to_str,
     option_to_list,
+    list_to_option,
+    str_to_option,
 ]
-import ChatRequest
+
 
 Client : Client.Client
-
-## The OpenAI ChatML standard message used to query the AI model.
-Message : {
-    role : Str,
-    content : Str,
-    tool_calls : List ToolCall,
-    name : Str,
-    tool_call_id : Str,
-    cached : Bool,
-}
+Message: Shared.Message
 
 ## Internal ChatML message to decode messages from JSON. Allows optional fields.
 DecodeMessage : {
@@ -49,30 +41,6 @@ DecodeMessage : {
     tool_calls : Option (List ToolCall),
     name : Option Str,
     tool_call_id : Option Str,
-}
-
-## The structure of the request body to be sent in the Http request.
-ChatRequestBody : {
-    model : Str,
-    messages : List Message,
-    temperature : F32,
-    # top_a : F32, # no anthropic
-    top_p : F32, 
-    # top_k : U64, # no openai
-    # frequency_penalty : F32, # no anthropic
-    # presence_penalty : F32, # no anthropic
-    # repetition_penalty : F32, # no anthropic
-    # min_p : F32, # no anthropic
-    seed : Option U64,
-    max_tokens : Option U64,
-    # provider : { # no anthropic
-    #     order : Option (List Str),
-    # },
-    # models : Option (List Str), # no anthropic
-    # route : Option Str, # no anthropic
-    # tools: Option (List Tools.Tool),
-    # toolChoice: Option Tools.ToolChoice,
-    system: Option Str,
 }
 
 ## The structure of the JSON response body received from the OpenRouter API.
@@ -130,37 +98,307 @@ DecodeAnthropicResponseBody : {
     }
 }
 
+## The structure of the request body to be sent in the Http request.
+OpenRouterReqBody : {
+    model : Str,
+    messages : List Message,
+    temperature : F32,
+    top_a : F32,
+    top_p : F32,
+    top_k : U64,
+    frequency_penalty : F32,
+    presence_penalty : F32,
+    repetition_penalty : F32,
+    min_p : F32,
+    seed : Option U64,
+    max_tokens : Option U64,
+    provider : {
+        order : Option (List Str),
+    },
+    models : Option (List Str),
+    route : Option Str,
+    # tools: Option (List Tools.Tool),
+    # toolChoice: Option Tools.ToolChoice,
+}
+
+OpenAIReqBody : {
+    model : Str,
+    messages : List Message,
+    temperature : F32,
+    top_p : F32,
+    frequency_penalty : F32,
+    presence_penalty : F32,
+    seed : Option U64,
+    max_completion_tokens : Option U64,
+    # tools: Option (List Tools.Tool),
+    # toolChoice: Option Tools.ToolChoice,
+}
+
+AnthropicReqBody : {
+    model : Str,
+    messages : List Message,
+    temperature : F32,
+    top_p : F32, 
+    top_k : U64, # no openai
+    seed : Option U64,
+    max_tokens : Option U64,
+    system: Option Str,
+    # tools: Option (List Tools.Tool),
+    # tool_choice: Option ToolChoice,
+}
+
+## The structure of non-cached messages to be encoded to JSON for the API.
+EncodeBasicMessage : {
+    role : Str,
+    content : Str,
+    tool_calls : Option (List ToolCall),
+    name : Option Str,
+    tool_call_id : Option Str,
+}
+
+## The structure of cached messages to be encoded to JSON for the API.
+EncodeCacheMessage : {
+    role : Str,
+    content : List CacheContent,
+    tool_calls : Option (List ToolCall),
+    name : Option Str,
+    tool_call_id : Option Str,
+}
+
+## The message content of a cacheable message.
+CacheContent : {
+    type : Str,
+    text : Str,
+    cache_control : Option { type : Str },
+}
+
+## Create a request object to be sent with basic-cli's Http.send using ChatML messages.
+build_http_request : Client, { tool_choice ?? ToolChoice } -> RequestObject
+build_http_request = |client, { tool_choice ?? Auto }|
+    tools =
+        when Option.get(client.tools) is
+            Some(tool_list) -> tool_list
+            None -> []
+    {
+        method: POST,
+        headers: get_headers(client),
+        uri: get_api_url(client.api),
+        body: build_request_body(update_system_message(client, client.messages))
+        |> inject_messages(compatible_messages(client.messages, client.api))
+        |> inject_tools(tools)
+        |> inject_tool_choice(tool_choice, tools),
+        timeout_ms: client.request_timeout,
+    }
+
+get_headers = |client|
+    when client.api is
+        Anthropic -> 
+            [
+                { name: "content-type", value: "application/json" },
+                { name: "anthropic-version", value: "2023-06-01" },
+                { name: "x-api-key", value: client.api_key },
+            ]
+        _ ->
+            [
+                { name: "content-type", value: "application/json" },
+                { name: "Authorization", value: "Bearer ${client.api_key}" },
+            ]
+
+
+get_api_url = |api|
+    when api is
+        OpenAI -> "https://api.openai.com/v1/chat/completions"
+        Anthropic -> "https://api.anthropic.com/v1/messages"
+        OpenRouter -> "https://openrouter.ai/api/v1/chat/completions"
+        OpenAICompliant { url } -> url
+
+build_request_body = |client|
+    when client.api is
+        OpenAI -> openai_request_body(client)
+        Anthropic -> anthropic_request_body(client)
+        OpenRouter -> openrouter_request_body(client)
+        OpenAICompliant _ -> openai_request_body(client)
+
+openai_request_body = |client|
+    body : OpenAIReqBody
+    body = {
+        model: client.model,
+        messages: [],
+        temperature: client.temperature,
+        top_p: client.top_p,
+        frequency_penalty: client.frequency_penalty,
+        presence_penalty: client.presence_penalty,
+        seed: client.seed,
+        max_completion_tokens: client.max_tokens,
+    }
+    Encode.to_bytes(
+        body,
+        Json.utf8_with(
+            {
+                field_name_mapping: SnakeCase,
+                empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }),
+            },
+        ),
+    )
+
+anthropic_request_body = |client|
+    body : AnthropicReqBody
+    body = {
+        model: client.model,
+        messages: [],
+        temperature: client.temperature,
+        top_p: client.top_p,
+        top_k: client.top_k,
+        seed: client.seed,
+        max_tokens: client.max_tokens,
+        system: client.system,
+    }
+    Encode.to_bytes(
+        body,
+        Json.utf8_with(
+            {
+                field_name_mapping: SnakeCase,
+                empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }),
+            },
+        ),
+    )
+
+openrouter_request_body = |client|
+    body : OpenRouterReqBody
+    body = {
+        model: client.model,
+        messages: [],
+        temperature: client.temperature,
+        top_a: client.top_a,
+        top_p: client.top_p,
+        top_k: client.top_k,
+        frequency_penalty: client.frequency_penalty,
+        presence_penalty: client.presence_penalty,
+        repetition_penalty: client.repetition_penalty,
+        min_p: client.min_p,
+        seed: client.seed,
+        max_tokens: client.max_tokens,
+        provider: { order: client.provider_order },
+        models: client.models,
+        route: client.route,
+    }
+    Encode.to_bytes(
+        body,
+        Json.utf8_with(
+            {
+                field_name_mapping: SnakeCase,
+                empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }),
+            },
+        ),
+    )
+
+inject_tools : List U8, List Tool -> List U8
+inject_tools = |bytes, tools|
+    if List.is_empty tools then
+        bytes
+    else
+        InternalTools.inject_tools(bytes, tools)
+
+inject_tool_choice = |bytes, tool_choice, tools|
+    if List.is_empty tools then
+        bytes
+    else
+        InternalTools.inject_tool_choice(bytes, tool_choice)
+     
+## Inject the messages list into the request body, by encoding the message to the correct format based on the cached flag.
+inject_messages : List U8, List Message -> List U8
+inject_messages = |body_bytes, messages|
+    inject_at = List.walk_with_index_until(
+        body_bytes,
+        0,
+        |_, _, i|
+            when List.drop_first(body_bytes, i) is
+                ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', '[', ..] -> Break((i + 11))
+                ['m', 'e', 's', 's', 'a', 'g', 'e', 's', '"', ':', ' ', '[', ..] -> Break((i + 12))
+                _ -> Continue(0),
+    )
+
+    if inject_at == 0 then
+        body_bytes
+    else
+        { before, others } = List.split_at(body_bytes, inject_at)
+        message_bytes =
+            messages
+            |> List.map(
+                |message|
+                    if message.cached and message.tool_call_id == "" then
+                        bytes =
+                            message_to_cache_message(message)
+                            |> Encode.to_bytes(Json.utf8_with({ field_name_mapping: SnakeCase, empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }) }))
+                            |> List.append(',')
+                        bytes
+                        |> List.drop_at(List.len(bytes) - 3) # drop the last comma before the closing bracket
+                    else
+                        bytes =
+                            message_to_basic_message(message)
+                            |> Encode.to_bytes(Json.utf8_with({ field_name_mapping: SnakeCase, empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }) }))
+                            |> List.append(',')
+                        bytes
+                        |> List.drop_at(List.len(bytes) - 3), # drop the last comma before the closing bracket
+            )
+            |> List.join
+            |> List.drop_last(1)
+        List.join([before, message_bytes, others])
+
+## Convert a Message to an EncodeCacheMessage.
+message_to_cache_message : Message -> EncodeCacheMessage
+message_to_cache_message = |message| {
+    role: message.role,
+    content: [build_message_content(message.content, message.cached)],
+    tool_calls: list_to_option(message.tool_calls),
+    tool_call_id: str_to_option(message.tool_call_id),
+    name: str_to_option(message.name),
+}
+
+## Convert a Message to an EncodeBasicMessage.
+message_to_basic_message : Message -> EncodeBasicMessage
+message_to_basic_message = |message| {
+    role: message.role,
+    content: message.content,
+    tool_calls: list_to_option(message.tool_calls),
+    tool_call_id: str_to_option(message.tool_call_id),
+    name: str_to_option(message.name),
+}
+
+## Build a CacheContent object for a message.
+build_message_content : Str, Bool -> CacheContent
+build_message_content = |text, cached| {
+    type: "text",
+    text,
+    cache_control: if cached then Option.some({ type: "ephemeral" }) else Option.none({}),
+}
+
+## TODO: This is very inefficient - plan API changes to move messages into the client. 
+## - Then each time a system message is appended when using anthropic, update the system message in the client
+update_system_message : Client, List Message -> Client
+update_system_message = |client, messages|
+    when client.api is
+        Anthropic ->
+            system = Shared.option_to_str(client.system)
+            new_system = List.keep_if(messages, |message| (message.role == "system") and !Str.contains(system, message.content))
+                |> List.map .content
+                |> List.prepend(system) 
+                |> Str.join_with("\n") 
+            Client.set_system(client, new_system)
+        _ -> client
+
+compatible_messages : List Message, Shared.ApiTarget -> List Message
+compatible_messages = |messages, api| 
+    when api is
+        Anthropic -> List.drop_if(messages, |message| message.role == "system")
+        _ -> messages
+
 ## Initialize the OpenRouter API client with the required API key. All parameters besides apiKey are completely optional, and may be set during initialization, assigned later, or left as their defaults.
 ## ```
 ## client = Chat.new_client { apiKey: "your_openrouter_api_key" }
 ## ```
 ## Same as `Client.new`.
 new_client = Client.new
-
-## Create a request object to be sent with basic-cli's Http.send using ChatML messages.
-# build_http_request : Client, List Message, { tool_choice ?? ToolChoice } -> RequestObject
-# build_http_request = |client, messages, { tool_choice ?? Auto }|
-#     body = build_request_body(client)
-#     tools =
-#         when Option.get(client.tools) is
-#             Some(tool_list) -> tool_list
-#             None -> []
-#     {
-#         method: POST,
-#         headers: [
-#             { name: "Authorization", value: "Bearer ${client.api_key}" },
-#             { name: "anthropic-version", value: "2023-06-01" },
-#             { name: "x-api-key", value: client.api_key },
-#             { name: "content-type", value: "application/json" },
-#         ],
-#         uri: client.url,
-#         body: encode_request_body(body)
-#         |> inject_messages(messages)
-#         |> inject_tools(tools)
-#         |> inject_tool_choice(tool_choice, tools),
-#         timeout_ms: client.request_timeout,
-#     }
-build_http_request = ChatRequest.build_http_request
 
 ## Decode the JSON response body to a ChatML style request.
 decode_response : List U8 -> Result ChatResponseBody _
@@ -266,62 +504,64 @@ decode_top_message_choice = |response_body_bytes|
 decode_error_response = Shared.decode_error_response
 
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
-update_message_list : HttpResponse, List Message -> List Message
-update_message_list = |response, messages|
+update_message_list : Client, HttpResponse-> Result Client _
+update_message_list = |client, response|
+    # if response.status >= 200 and response.status <= 299 then
+    #     when decode_top_message_choice(response.body) is
+    #         Ok(message) -> List.append(messages, message)
+    #         Err(ApiError(err)) -> append_system_message(messages, "API error: ${Inspect.to_str(err)}", {}) # err.message
+    #         Err(NoChoices) -> append_system_message(messages, "No choices in API response", {})
+    #         Err(BadJson(str)) -> append_system_message(messages, "Could not decode JSON response:\n${str}", {})
+    #         Err(DecodingError) -> append_system_message(messages, "Error decoding API response", {})
+    #     else
+
+    # message =
+    #     Str.from_utf8(response.body)
+    #     |> Result.with_default("")
+    #     |> Str.with_prefix("Http error: ${Num.to_str(response.status)}\n")
+    # append_system_message(messages, message, {})
     if response.status >= 200 and response.status <= 299 then
-        when decode_top_message_choice(response.body) is
-            Ok(message) -> List.append(messages, message)
-            Err(ApiError(err)) -> append_system_message(messages, "API error: ${Inspect.to_str(err)}", {}) # err.message
-            Err(NoChoices) -> append_system_message(messages, "No choices in API response", {})
-            Err(BadJson(str)) -> append_system_message(messages, "Could not decode JSON response:\n${str}", {})
-            Err(DecodingError) -> append_system_message(messages, "Error decoding API response", {})
-        else
+        message = decode_top_message_choice(response.body)?
+        updated = List.append(client.messages, message)
+        Ok({client & messages: updated})
+    else
+        reponse_body = Str.from_utf8(response.body) |> Result.with_default("")
+        Err(HttpError { status: response.status, body: reponse_body })
 
-    message =
-        Str.from_utf8(response.body)
-        |> Result.with_default("")
-        |> Str.with_prefix("Http error: ${Num.to_str(response.status)}\n")
-    append_system_message(messages, message, {})
+# ## Append a system message to the list of messages.
+# append_system_message : List Message, Str, { cached ?? Bool } -> List Message
+# append_system_message = |messages, text, { cached ?? Bool.false }|
+#     List.append(messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
-# when response_res is
-#     Ok(response) ->
-#         when decode_top_message_choice(response.body) is
-#             Ok(message) -> List.append(messages, message)
-#             Err(ApiError(err)) -> append_system_message(messages, "API error: ${Inspect.to_str(err)}", {}) # err.message
-#             Err(NoChoices) -> append_system_message(messages, "No choices in API response", {})
-#             Err(BadJson(str)) -> append_system_message(messages, "Could not decode JSON response:\n${str}", {})
-#             Err(DecodingError) -> append_system_message(messages, "Error decoding API response", {})
+# ## Append a user message to the list of messages.
+# append_user_message : List Message, Str, { cached ?? Bool } -> List Message
+# append_user_message = |messages, text, { cached ?? Bool.false }|
+#     List.append(messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
-#     Err(HttpErr(BadStatus({ code }))) ->
-#         append_system_message(messages, "Http error: ${Num.to_str(code)}", {})
-
-#     Err(HttpErr(_)) ->
-#         append_system_message(messages, "Http error", {})
-
-## Encode the request body to be sent in the Http request.
-encode_request_body : ChatRequestBody -> List U8
-encode_request_body = |body|
-    Encode.to_bytes(
-        body,
-        Json.utf8_with(
-            {
-                field_name_mapping: SnakeCase,
-                empty_encode_as_null: Json.encode_as_null_option({ record: Bool.false }),
-            },
-        ),
-    )
+# ## Append an assistant message to the list of messages.
+# append_assistant_message : List Message, Str, { cached ?? Bool } -> List Message
+# append_assistant_message = |messages, text, { cached ?? Bool.false }|
+#     List.append(messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
 
 ## Append a system message to the list of messages.
-append_system_message : List Message, Str, { cached ?? Bool } -> List Message
-append_system_message = |messages, text, { cached ?? Bool.false }|
-    List.append(messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+append_system_message : Client, Str, { cached ?? Bool } -> Client
+append_system_message = |client, text, { cached ?? Bool.false }|
+    when client.api is
+        Anthropic ->
+            updated = Str.join_with([option_to_str(client.system), text], "\n\n")
+            { client & system: Option.some(updated) }
+        _ ->
+            updated = List.append(client.messages, { role: "system", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+            { client & messages: updated }
 
 ## Append a user message to the list of messages.
-append_user_message : List Message, Str, { cached ?? Bool } -> List Message
-append_user_message = |messages, text, { cached ?? Bool.false }|
-    List.append(messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+append_user_message : Client, Str, { cached ?? Bool } -> Client
+append_user_message = |client, text, { cached ?? Bool.false }|
+    updated = List.append(client.messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+    { client & messages: updated }
 
 ## Append an assistant message to the list of messages.
-append_assistant_message : List Message, Str, { cached ?? Bool } -> List Message
-append_assistant_message = |messages, text, { cached ?? Bool.false }|
-    List.append(messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+append_assistant_message : Client, Str, { cached ?? Bool } -> Client
+append_assistant_message = |client, text, { cached ?? Bool.false }|
+    updated = List.append(client.messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
+    { client & messages: updated }

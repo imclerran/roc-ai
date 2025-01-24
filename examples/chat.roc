@@ -1,7 +1,7 @@
 app [main!] {
     cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.19.0/bi5zubJ-_Hva9vxxPq4kNx4WHX6oFs8OP6Ad0tCYlrY.tar.br",
-    ansi: "../../roc-ansi/package/main.roc",
-    json: "../../roc-json/package/main.roc",
+    ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
     ai: "../package/main.roc",
 }
 
@@ -16,20 +16,20 @@ import cli.Stdout
 main! = |_|
     client = get_client!({})?
     Stdout.line!("Enter your questions below, or type 'Goodbye' to exit")?
-    loop!(client, initialize_messages)?
+    loop!(client)?
     "\nAssistant:  I have been a good chatbot. Goodbye! 😊"
     |> Ansi.color({ fg: Standard(Magenta) })
     |> Stdout.line!?
     Ok({})
 
-loop! = |client, previous_messages|
+loop! = |client|
     Stdout.write!("You: ")?
     query = Stdin.line!({})?
-    messages = Chat.append_user_message(previous_messages, query, {})
-    response = Http.send!(Chat.build_http_request(client, messages, {}))?
-    updated_messages = Chat.update_message_list(response, messages)
-    print_last_message!(updated_messages)?
-    loop!(client, updated_messages)
+    client2 = Chat.append_user_message(client, query, {})
+    response = Http.send!(Chat.build_http_request(client, {}))?
+    client3 = Chat.update_message_list(client2, response)?
+    print_last_message!(client3.messages)?
+    loop!(client)
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
 print_last_message! = |messages|
@@ -43,14 +43,16 @@ print_last_message! = |messages|
         _ -> Ok({})
 
 ## Initialize the message list with a system message
-initialize_messages =
-    []
-    |> Chat.append_system_message(
-        """
-        You are a helpful assistant, who answers questions in a concise and friendly manner. If you do not have knowledge about the on the users inquires about, you should politely tell them you cannot help."
-        """,
-        {},
-    )
+# initialize_messages =
+#     []
+#     |> Chat.append_system_message(
+#         """
+#         You are a helpful assistant, who answers questions in a concise and friendly manner. If you do not have knowledge about the on the users inquires about, you should politely tell them you cannot help."
+#         """,
+#         {},
+#     )
+
+system_message = "You are a helpful assistant, who answers questions in a concise and friendly manner. If you do not have knowledge about the on the users inquires about, you should politely tell them you cannot help."
 
 ## Define the preferred providers for each model
 preferred_providers = Dict.empty({}) |> Dict.insert("deepseek/deepseek-r1", ["Fireworks", "Together"])
@@ -101,22 +103,22 @@ get_client! = |{}|
         Ok({ api: OpenAI, model }) ->
             api_key = Env.var!("OPENAI_API_KEY")?
             print_choice!(choice, OpenAI, model)?
-            Ok(Client.new({ api: OpenAI, api_key, model }))
+            Client.new({ api: OpenAI, api_key, model }) |> Chat.append_system_message(system_message, {}) |> Ok
 
         Ok({ api: Anthropic, model }) ->
             api_key = Env.var!("ANTHROPIC_API_KEY")?
             print_choice!(choice, Anthropic, model)?
-            Ok(Client.new({ api: Anthropic, api_key, model, max_tokens: 4096 }))
+            Ok(Client.new({ api: Anthropic, api_key, model, max_tokens: 4096, system: system_message }))
 
         Ok({ api: OpenRouter, model }) ->
             provider_order = Dict.get(preferred_providers, model) |> Result.with_default([])
             api_key = Env.var!("OPENROUTER_API_KEY")?
             print_choice!(choice, OpenRouter, model)?
-            Ok(Client.new({ api: OpenRouter, api_key, model, provider_order }))
+            Client.new({ api: OpenRouter, api_key, model, provider_order }) |> Chat.append_system_message(system_message, {}) |> Ok
 
         Ok({ api: OpenAICompliant { url }, model }) ->
             print_choice!(choice, OpenAICompliant { url }, model)?
-            Ok(Client.new({ api: OpenAICompliant { url }, api_key: "", model }))
+            Client.new({ api: OpenAICompliant { url }, api_key: "", model }) |> Chat.append_system_message(system_message, {}) |> Ok
 
         Err _ ->
             "Oops! Invalid API choice.\n"
