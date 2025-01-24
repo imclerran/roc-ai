@@ -25,9 +25,7 @@ loop! : Chat.Client => Result {} _
 loop! = |client|
     Stdout.write!("You: ")?
     client2 = Chat.append_user_message(client, Stdin.line!({})?, {})
-    req = Chat.build_http_request(client2, {})
-    # dbg (req.body |> Str.from_utf8)
-    response = Http.send!(req)?
+    response = Http.send!(Chat.build_http_request(client2, {}))?
     client3 = Chat.update_message_list(client2, response)?
     client4 = Tools.handle_tool_calls!(client3, tool_handler_map, { max_model_calls: 10 })?
     print_last_message!(client4.messages)?
