@@ -30,11 +30,6 @@ This package is still in WIP 🛠️ stages, so the interface may be subject to 
 
 ## Example
 ```roc
-import cli.Stdout
-import cli.Http
-import ai.Chat
-
-main =
 main! = |_|
     api_key = Env.var!("OPENAI_API_KEY")?
     query = "How are you today?"
