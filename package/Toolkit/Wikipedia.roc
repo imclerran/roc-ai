@@ -12,138 +12,127 @@
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
 ## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { sendHttpReq } -> [wikipediaSearch, wikipediaParse]
+module { send_http_req! } -> [wikipedia_search, wikipedia_parse]
 
 import json.Json
 import InternalTools exposing [Tool]
-import Shared exposing [urlEncode]
+import Shared exposing [url_encode]
 
-baseUrl = "https://en.wikipedia.org/w/api.php"
+base_url = "https://en.wikipedia.org/w/api.php"
 
 ## Expose name, handler and tool for the wikipediaSarch.
 ##
 ## This tool allows the model to search Wikipedia for a given query.
-wikipediaSearch : { name : Str, handler : Str -> Task Str *, tool : Tool }
-wikipediaSearch = {
-    name: wikipediaSearchTool.function.name,
-    handler: wikipediaSearchHandler,
-    tool: wikipediaSearchTool,
+wikipedia_search : { name : Str, handler! : Str => Result Str _, tool : Tool }
+wikipedia_search = {
+    name: wikipedia_search_tool.function.name,
+    handler!: wikipedia_search_handler!,
+    tool: wikipedia_search_tool,
 }
 
 ## Tool definition for the wikepedia search function.
-wikipediaSearchTool : Tool
-wikipediaSearchTool =
-    queryParam = {
+wikipedia_search_tool : Tool
+wikipedia_search_tool =
+    query_param = {
         name: "search",
         type: "string",
-        description: 
-            """
-            The search query to use. This can be a single word or a phrase.
-            """,
+        description: "The search query to use. This can be a single word or a phrase.",
         required: Bool.true,
     }
-    limitParam = {
+    limit_param = {
         name: "limit",
         type: "number",
-        description: 
-            """
-            The number of results to return. This must be a positive integer.
-            """,
+        description: "The number of results to return. This must be a positive integer.",
         required: Bool.true,
     }
-    InternalTools.buildTool 
-        "wikipediaSearch" 
-        """
-        Search Wikipedia for a given query. This will return a list of articles that match the query.
-        """ 
-        [queryParam, limitParam]
-                    
-## Handler for the wikipedia search tool
-wikipediaSearchHandler : Str -> Task Str _
-wikipediaSearchHandler = \args ->
-    decoded : Decode.DecodeResult { search : Str, limit : U32 }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
-    when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+    InternalTools.build_tool(
+        "wikipediaSearch",
+        "Search Wikipedia for a given query. This will return a list of articles that match the query.",
+        [query_param, limit_param],
+    )
 
-        Ok { search, limit } ->
+## Handler for the wikipedia search tool
+wikipedia_search_handler! : Str => Result Str _
+wikipedia_search_handler! = |args|
+    decoded : Decode.DecodeResult { search : Str, limit : U32 }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    when decoded.result is
+        Err(_) ->
+            Ok("Failed to decode args")
+
+        Ok({ search, limit }) ->
             request = {
                 method: Get,
                 headers: [],
-                url: "$(baseUrl)?action=opensearch&search=$(urlEncode search)&limit=$(Num.toStr limit)&namespace=0&format=json",
-                mimeType: "",
+                url: "${base_url}?action=opensearch&search=${url_encode(search)}&limit=${Num.to_str(limit)}&namespace=0&format=json",
+                mime_type: "",
                 body: [],
                 timeout: NoTimeout,
             }
-            when sendHttpReq request |> Task.result! is
-                Ok response ->
+            when send_http_req!(request) is
+                Ok(response) ->
                     response.body
-                    |> Str.fromUtf8
-                    |> Result.withDefault "Failed to decode API response"
-                    |> Task.ok
+                    |> Str.from_utf8
+                    |> Result.with_default("Failed to decode API response")
+                    |> Ok
 
-                Err _ ->
+                Err(_) ->
                     "Failed to get response from Wikipedia"
-                    |> Task.ok
+                    |> Ok
 
 ## Expose name, handler and tool for the wikipediaParse tool.
 ##
 ## This tool allows the model to parse a Wikipedia article.
-wikipediaParse : { name : Str, handler : Str -> Task Str *, tool : Tool }
-wikipediaParse = {
-    name: wikipediaParseTool.function.name,
-    handler: wikipediaParseHandler,
-    tool: wikipediaParseTool,
+wikipedia_parse : { name : Str, handler! : Str => Result Str _, tool : Tool }
+wikipedia_parse = {
+    name: wikipedia_parse_tool.function.name,
+    handler!: wikipedia_parse_handler!,
+    tool: wikipedia_parse_tool,
 }
-                    
+
 ## Tool definition for the wikipedia parse function
-wikipediaParseTool : Tool
-wikipediaParseTool =
-    titleParam = {
+wikipedia_parse_tool : Tool
+wikipedia_parse_tool =
+    title_param = {
         name: "page",
         type: "string",
-        description: 
-            """
-            The title of the article to parse. This must be a valid Wikipedia article title, with underscores replacing spaces.
-            """,
+        description: "The title of the article to parse. This must be a valid Wikipedia article title, with underscores replacing spaces.",
         required: Bool.true,
     }
-    InternalTools.buildTool 
-        "wikipediaParse" 
-        """
-        Parse a Wikipedia article. This will return the plaintext content of the article.
-        """ 
-        [titleParam]
-                    
-## Handler for the wikipedia parse tool
-wikipediaParseHandler : Str -> Task Str _
-wikipediaParseHandler = \args ->
-    decoded : Decode.DecodeResult { page : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
-    when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+    InternalTools.build_tool(
+        "wikipediaParse",
+        "Parse a Wikipedia article. This will return the plaintext content of the article.",
+        [title_param],
+    )
 
-        Ok { page } ->
+## Handler for the wikipedia parse tool
+wikipedia_parse_handler! : Str => Result Str _
+wikipedia_parse_handler! = |args|
+    decoded : Decode.DecodeResult { page : Str }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    when decoded.result is
+        Err(_) ->
+            Ok("Failed to decode args")
+
+        Ok({ page }) ->
             request = {
                 method: Get,
                 headers: [],
-                url: "$(baseUrl)?action=parse&page=$(page)&prop=text&format=json",
-                mimeType: "",
+                url: "${base_url}?action=parse&page=${page}&prop=text&format=json",
+                mime_type: "",
                 body: [],
                 timeout: NoTimeout,
             }
-            when sendHttpReq request |> Task.result! is
-                Ok response ->
+            when send_http_req!(request) is
+                Ok(response) ->
                     response.body
-                    |> Str.fromUtf8
-                    |> Result.withDefault "Failed to decode API response"
-                    |> Task.ok
+                    |> Str.from_utf8
+                    |> Result.with_default("Failed to decode API response")
+                    |> Ok
 
-                Err _ ->
+                Err(_) ->
                     "Failed to get response from Wikipedia"
-                    |> Task.ok
+                    |> Ok

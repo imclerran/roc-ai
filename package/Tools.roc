@@ -1,4 +1,4 @@
-module { sendHttpReq } -> [Tool, ToolCall, buildTool, handleToolCalls, dispatchToolCalls] 
+module { send_http_req! } -> [Tool, ToolCall, build_tool, handle_tool_calls!, dispatch_tool_calls!, call_tool!]
 
 # import json.Option exposing [Option]
 import InternalTools
@@ -39,61 +39,80 @@ ToolCall : InternalTools.ToolCall
 Message : {
     role : Str,
     content : Str,
-    toolCalls : List ToolCall,
+    tool_calls : List ToolCall,
     name : Str,
-    toolCallId : Str,
-    cached: Bool,
+    tool_call_id : Str,
+    cached : Bool,
 }
 
 ## Using the given toolHandlerMap, check the last message for tool calls, call all the tools in the tool call list, send the results back to the model, and handle any additional tool calls that may have been generated. If or when no more tool calls are present, return the updated list of messages.
-## 
+##
 ## The Dict maps function tool names strings to roc functions that take their arguments as a JSON string, parse the json, and return the tool's response.
-handleToolCalls : List Message, Client, Dict Str (Str -> Task Str _), { maxModelCalls ? U32 } -> Task (List Message) _
-handleToolCalls = \messages, client, toolHandlerMap, { maxModelCalls ? Num.maxU32 } ->
-    when List.last messages is
-        Ok { role, toolCalls } if role == "assistant" ->
-            if List.isEmpty toolCalls || maxModelCalls == 0 then
-                Task.ok messages
+handle_tool_calls! : Client, Dict Str (Str => Result Str _), { max_model_calls ?? U32 } => Result Client _
+handle_tool_calls! = |client, tool_handler_map, { max_model_calls ?? Num.max_u32 }|
+    when List.last(client.messages) is
+        Ok({ role, tool_calls }) if role == "assistant" ->
+            if List.is_empty(tool_calls) then #or max_model_calls == 0 then
+                Ok(client)
             else
-                tc = if maxModelCalls > 1 then { toolChoice: Auto } else { toolChoice: None }
-                toolMessages = dispatchToolCalls! toolCalls toolHandlerMap
-                messagesWithTools = List.join [messages, toolMessages]
-                response = sendHttpReq (Chat.buildHttpRequest client messagesWithTools tc) |> Task.result!
-                messagesWithResponse = Chat.updateMessageList response messagesWithTools
-                handleToolCalls messagesWithResponse client toolHandlerMap { maxModelCalls: maxModelCalls - 1 }
+                tc = if max_model_calls > 1 then { tool_choice: Auto } else { tool_choice: None }
+                tool_messages = dispatch_tool_calls!(tool_calls, tool_handler_map)?
+                client2 = Client.set_messages(client, List.join[client.messages, tool_messages])
+                response = send_http_req!(Chat.build_http_request(client2, tc))?
+                client3 = Chat.update_message_list(client2, response)?
+                handle_tool_calls!(client3, tool_handler_map, { max_model_calls: max_model_calls - 1 })
 
-        _ -> Task.ok messages
+        _ -> Ok(client)
 
 ## Dispatch the tool calls to the appropriate tool handler functions and return the list of tool messages.
 ##
 ## The Dict maps function tool names strings to roc functions that take their arguments as a JSON string, parse the json, and return the tool's response.
-dispatchToolCalls : List ToolCall, Dict Str (Str -> Task Str _) -> Task (List Message) _
-dispatchToolCalls = \toolCallList, toolHandlerMap ->
-    Task.loop { toolCalls: toolCallList, toolMessages: [] } \{ toolCalls, toolMessages } ->
-        when List.first toolCalls is
-            Ok toolCall ->
-                when toolHandlerMap |> Dict.get toolCall.function.name is
-                    Ok handler ->
-                        toolMessage = callTool! toolCall handler
-                        updatedToolMessages = List.append toolMessages toolMessage
-                        Task.ok (Step { toolCalls: (List.dropFirst toolCalls 1), toolMessages: updatedToolMessages })
-                    
-                    _ -> 
-                        Task.ok (Step { toolCalls: (List.dropFirst toolCalls 1), toolMessages })
+dispatch_tool_calls! : List ToolCall, Dict Str (Str => Result Str _) => Result (List Message) _
+dispatch_tool_calls! = |tool_calls, tool_handler_map|
+    dispatch_tool_calls_help!(tool_calls, tool_handler_map, [])
 
-            Err ListWasEmpty -> Task.ok (Done toolMessages)
+dispatch_tool_calls_help! : List ToolCall, Dict Str (Str => Result Str _), List Message => Result (List Message) _
+dispatch_tool_calls_help! = |tool_calls, tool_handler_map, tool_messages|
+    when tool_calls is
+        [tool_call, .. as remaining_calls] ->
+            when Dict.get(tool_handler_map, tool_call.function.name) is
+                Ok(handler!) ->
+                    tool_message = try call_tool!(tool_call, handler!)
+                    updated_tool_messages = List.append(tool_messages, tool_message)
+                    dispatch_tool_calls_help!(remaining_calls, tool_handler_map, updated_tool_messages)
+
+                _ ->
+                    tool_message = invalid_tool_message(tool_call)
+                    updated_tool_messages = List.append(tool_messages, tool_message)
+                    dispatch_tool_calls_help!(remaining_calls, tool_handler_map, updated_tool_messages)
+
+        [] -> Ok(tool_messages)
 
 ## Call the given tool function with the given arguments and return the tool message.
-callTool : ToolCall, (Str -> Task Str err) -> Task Message err
-callTool = \toolCall, handler ->
-    Task.map (handler toolCall.function.arguments) \text -> {
-        role: "tool",
-        content: text,
-        toolCalls: [],
-        toolCallId: toolCall.id,
-        name: toolCall.function.name,
-        cached: Bool.false,
-    }
+call_tool! : ToolCall, (Str => Result Str err) => Result Message err
+call_tool! = |tool_call, handler!|
+    text = try handler!(tool_call.function.arguments)
+    (
+        {
+            role: "tool",
+            content: text,
+            tool_calls: [],
+            tool_call_id: tool_call.id,
+            name: tool_call.function.name,
+            cached: Bool.false,
+        }
+    )
+    |> Ok
+
+invalid_tool_message : ToolCall -> Message
+invalid_tool_message = |tool_call| {
+    role: "tool",
+    content: "Error: the requested tool could not be found on the host machine.",
+    tool_calls: [],
+    tool_call_id: tool_call.id,
+    name: tool_call.function.name,
+    cached: Bool.false,
+}
 
 ## Build a tool object with the given name, description, and parameters.
 ## ```
@@ -107,8 +126,8 @@ callTool = \toolCall, handler ->
 ##     - `type : Str` : The type of the parameter.
 ##     - `description : Str` : The description of the parameter.
 ##     - `required : Bool` : Whether the parameter is required.
-## 
+##
 ## Returns:
 ## - `Tool` : The tool object.
-buildTool : Str, Str, List { name : Str, type : Str, description : Str, required : Bool } -> Tool
-buildTool = InternalTools.buildTool
+build_tool : Str, Str, List { name : Str, type : Str, description : Str, required : Bool } -> Tool
+build_tool = InternalTools.build_tool

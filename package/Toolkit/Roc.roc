@@ -13,245 +13,241 @@
 ## client = Client.init { apiKey, model: "tool-capable/model", tools }
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
-## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## response = try Http.send (Chat.buildHttpRequest client messages {})
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { cmdNew, cmdArg, cmdOutput } -> [roc, rocCheck, rocTest, rocStart]
+module { cmd_new, cmd_arg, cmd_output! } -> [roc, roc_check, roc_test, roc_start]
 
 import json.Json
-import InternalTools exposing [Tool, buildTool]
-
-Output : {
-    stdout : List U8,
-    stderr : List U8,
-}
-
-CommandErr : [
-    ExitCode I32,
-    KilledBySignal,
-    IOError Str,
-]
+import InternalTools exposing [Tool, build_tool]
 
 ## Expose name, handler and tool for roc.
 ##
 ## This tool will allow the model to run `roc` for a roc file.
-roc : { name : Str, handler : Str -> Task Str *, tool : Tool }
+roc : { name : Str, handler! : Str => Result Str _, tool : Tool }
 roc = {
-    name: rocTool.function.name,
-    handler: rocHandler,
-    tool: rocTool,
+    name: roc_tool.function.name,
+    handler!: roc_handler!,
+    tool: roc_tool,
 }
 
-rocTool : Tool
-rocTool = 
-    rocFileParam = {
+roc_tool : Tool
+roc_tool =
+    roc_file_param = {
         name: "rocFile",
         type: "string",
         description: "The path to the .roc file to be executed. IE: `./path/to/file.roc`",
         required: Bool.true,
     }
-    buildTool "roc" "Build a roc application from a .roc file, and run it if there are no errors." [rocFileParam]
+    build_tool("roc", "Build a roc application from a .roc file, and run it if there are no errors.", [roc_file_param])
 
-rocHandler : Str -> Task Str _
-rocHandler = \args ->
-    decoded : Decode.DecodeResult { rocFile : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+roc_handler! : Str => Result Str _
+roc_handler! = |args|
+    decoded : Decode.DecodeResult { roc_file : Str }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { rocFile } ->
-            if rocFile |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
-            else if rocFile |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+        Ok({ roc_file }) ->
+            if roc_file |> Str.contains("..") then
+                Ok("Invalid path: `..` is not allowed")
+            else if roc_file |> Str.starts_with("/") then
+                Ok("Invalid path: must be a relative path")
             else
-                cmdNew "roc" 
-                    |> cmdArg rocFile
-                    |> cmdOutput
-                    |> Task.result!
-                    |> cmdOutputResultToStr
-                    |> Task.ok
+                cmd_new("roc")
+                |> cmd_arg(roc_file)
+                |> cmd_output!
+                |> cmd_output_to_str
+                |> Ok
 
 ## Expose name, handler and tool for rocCheck.
 ##
 ## This tool will allow the model to run `roc check` for a Roc file.
-rocCheck : { name : Str, handler : Str -> Task Str *, tool : Tool }
-rocCheck = {
-    name: rocCheckTool.function.name,
-    handler: rocCheckHandler,
-    tool: rocCheckTool,
+roc_check : { name : Str, handler! : Str => Result Str _, tool : Tool }
+roc_check = {
+    name: roc_check_tool.function.name,
+    handler!: roc_check_handler!,
+    tool: roc_check_tool,
 }
 
-rocCheckTool : Tool
-rocCheckTool = 
-    rocFileParam = {
+roc_check_tool : Tool
+roc_check_tool =
+    roc_file_param = {
         name: "rocFile",
         type: "string",
         description: "The path to the .roc file to be executed. IE: `./path/to/file.roc`",
         required: Bool.true,
     }
-    buildTool "rocCheck" "Check a Roc file for syntax errors" [rocFileParam]
+    build_tool("rocCheck", "Check a Roc file for syntax errors", [roc_file_param])
 
-rocCheckHandler : Str -> Task Str _
-rocCheckHandler = \args ->
-    decoded : Decode.DecodeResult { rocFile : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+roc_check_handler! : Str => Result Str _
+roc_check_handler! = |args|
+    decoded : Decode.DecodeResult { roc_file : Str }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { rocFile } ->
-            if rocFile |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
-            else if rocFile |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+        Ok({ roc_file }) ->
+            if roc_file |> Str.contains("..") then
+                Ok("Invalid path: `..` is not allowed")
+            else if roc_file |> Str.starts_with("/") then
+                Ok("Invalid path: must be a relative path")
             else
-                cmdNew "roc" 
-                    |> cmdArg "check"
-                    |> cmdArg rocFile
-                    |> cmdOutput
-                    |> Task.result!
-                    |> cmdOutputResultToStr
-                    |> Task.ok
+                cmd_new("roc")
+                |> cmd_arg("check")
+                |> cmd_arg(roc_file)
+                |> cmd_output!
+                |> cmd_output_to_str
+                |> Ok
 
 ## Expose name, handler and tool for rocTest.
 ##
 ## This tool will allow the model to run `roc test` for a Roc file.
-rocTest : { name : Str, handler : Str -> Task Str *, tool : Tool }
-rocTest = {
-    name: rocTestTool.function.name,
-    handler: rocTestHandler,
-    tool: rocTestTool,
+roc_test : { name : Str, handler! : Str => Result Str _, tool : Tool }
+roc_test = {
+    name: roc_test_tool.function.name,
+    handler!: roc_test_handler!,
+    tool: roc_test_tool,
 }
 
-rocTestTool : Tool
-rocTestTool = 
-    rocFileParam = {
+roc_test_tool : Tool
+roc_test_tool =
+    roc_file_param = {
         name: "rocFile",
         type: "string",
         description: "The path to the .roc file to be tested. IE: `./path/to/file.roc`",
         required: Bool.true,
     }
-    buildTool "rocTest" "Test the expect statements in a specified roc file." [rocFileParam]
+    build_tool("rocTest", "Test the expect statements in a specified roc file.", [roc_file_param])
 
-rocTestHandler : Str -> Task Str _
-rocTestHandler = \args ->
-    decoded : Decode.DecodeResult { rocFile : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+roc_test_handler! : Str => Result Str _
+roc_test_handler! = |args|
+    decoded : Decode.DecodeResult { roc_file : Str }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { rocFile } ->
-            if rocFile |> Str.contains ".." then
-                Task.ok "Invalid path: `..` is not allowed"
-            else if rocFile |> Str.startsWith "/" then
-                Task.ok "Invalid path: must be a relative path"
+        Ok({ roc_file }) ->
+            if roc_file |> Str.contains("..") then
+                Ok("Invalid path: `..` is not allowed")
+            else if roc_file |> Str.starts_with("/") then
+                Ok("Invalid path: must be a relative path")
             else
-                cmdNew "roc" 
-                    |> cmdArg "test"
-                    |> cmdArg rocFile
-                    |> cmdOutput
-                    |> Task.result!
-                    |> cmdOutputResultToStr
-                    |> Task.ok
+                cmd_new("roc")
+                |> cmd_arg("test")
+                |> cmd_arg(roc_file)
+                |> cmd_output!
+                |> cmd_output_to_str
+                |> Ok
 
 ## Expose name, handler and tool for rocStart.
 ##
 ## This tool will allow the model to use `roc-start` to initialize a new Roc application.
-rocStart : { name : Str, handler : Str -> Task Str *, tool : Tool }
-rocStart = {
-    name: rocStartTool.function.name,
-    handler: rocStartHandler,
-    tool: rocStartTool,
+roc_start : { name : Str, handler! : Str => Result Str _, tool : Tool }
+roc_start = {
+    name: roc_start_tool.function.name,
+    handler!: roc_start_handler!,
+    tool: roc_start_tool,
 }
 
-rocStartTool : Tool
-rocStartTool = 
-    appNameParam = {
+roc_start_tool : Tool
+roc_start_tool =
+    app_name_param = {
         name: "appName",
         type: "string",
         description: "The name of the .roc application to be initialized. IE: `myApp` will generate `myApp.roc`",
         required: Bool.true,
     }
-    platformParam = {
+    platform_param = {
         name: "platform",
         type: "string",
         description: "The platform to use in the new roc application. May be one of: `basic-cli`, or `basic-webserer`",
         required: Bool.true,
     }
-    buildTool 
-        "rocStart" 
+    build_tool(
+        "rocStart",
         """
         Start a new Roc application with the specified name and platform. 
         You should always use this tool when creating a new roc program,
         and make sure to read read the generated output file before changing
         it, so that the correct package and platform urls can be maintained.
-        """
-        [appNameParam, platformParam]
+        """,
+        [app_name_param, platform_param],
+    )
 
-rocStartHandler : Str -> Task Str _
-rocStartHandler = \args ->
-    decoded : Decode.DecodeResult { appName : Str, platform : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+roc_start_handler! : Str => Result Str _
+roc_start_handler! = |args|
+    decoded : Decode.DecodeResult { app_name : Str, platform : Str }
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { appName, platform } ->
-            if appName |> Str.contains ".." then
-                Task.ok "Invalid appName: `..` is not allowed"
-            else if appName |> Str.contains "/" then
-                Task.ok "Invalid appName: name may not be a path"
-            else if appName |> Str.contains ".roc" then
-                Task.ok "Invalid appName: name may not contain file extension."
-            else if platform != "basic-cli" && platform != "basic-webserver" then
-                Task.ok "Invalid platform: must be one of 'basic-cli' or 'basic-webserver'"
+        Ok({ app_name, platform }) ->
+            if app_name |> Str.contains("..") then
+                Ok("Invalid appName: `..` is not allowed")
+            else if app_name |> Str.contains("/") then
+                Ok("Invalid appName: name may not be a path")
+            else if app_name |> Str.contains(".roc") then
+                Ok("Invalid appName: name may not contain file extension.")
+            else if platform != "basic-cli" and platform != "basic-webserver" then
+                Ok("Invalid platform: must be one of 'basic-cli' or 'basic-webserver'")
             else
-                cmdNew "roc-start" 
-                    |> cmdArg "app"
-                    |> cmdArg appName
-                    |> cmdArg platform
-                    |> cmdOutput
-                    |> Task.result!
-                    |> cmdOutputResultToStr
-                    |> Task.ok
+                cmd_new("roc-start")
+                |> cmd_arg("app")
+                |> cmd_arg(app_name)
+                |> cmd_arg(platform)
+                |> cmd_output!
+                |> cmd_output_to_str
+                |> Ok
 
-cmdOutputResultToStr : Result Output [CmdOutputError (Output, CommandErr)] -> Str
-cmdOutputResultToStr = \outputRes ->
-    when outputRes is
-        Ok { stdout, stderr: _ } -> 
-            output = 
-                stdout 
-                    |> stripAnsiControl
-                    |> Str.fromUtf8 
-                    |> Result.withDefault "Could not parse output: Bad UTF-8"
-                    
-            "Command output:\n\n$(output)"
-        Err (CmdOutputError outErr) -> "Error: $(outputErrToStr outErr)"
+cmd_output_to_str = |output_res|
+    when output_res is
+        { stdout, stderr, status: Ok(_) } ->
+            stdout_str =
+                stdout
+                |> strip_ansi_control
+                |> Str.from_utf8
+                |> Result.with_default("Could not parse output: Bad UTF-8")
+            stderr_str =
+                stderr
+                |> strip_ansi_control
+                |> Str.from_utf8
+                |> Result.with_default("Could not parse output: Bad UTF-8")
+
+            "${stdout_str}\n${stderr_str}" |> Str.trim
+
+        { stderr: _, stdout: _, status: Err err} -> output_err_to_str(err)
 
 ## Convert a CommandOutputError to a Str
-outputErrToStr : (Output, CommandErr) -> Str
-outputErrToStr = \(output, err) ->
+output_err_to_str = |err|
     when err is
-        ExitCode code -> 
-            stderr = output.stderr |> stripAnsiControl |> Str.fromUtf8 |> Result.withDefault ""
-            stdout = output.stdout |> stripAnsiControl |> Str.fromUtf8 |> Result.withDefault ""
-            "Child exited with non-zero code: $(Num.toStr code)\n$(stdout)\n$(stderr)"
-        KilledBySignal -> "Child was killed by signal"
-        IOError ioErr -> "IOError executing: $(ioErr)"
+        NotFound -> "File not found"
+        PermissionDenied -> "Permission denied"
+        BrokenPipe -> "Broken pipe"
+        AlreadyExists -> "File already exists"
+        Interrupted -> "Write interrupted"
+        Unsupported -> "Unsupported operation"
+        OutOfMemory -> "Out of memory"
+        Other(str) -> str
 
 ## Strip ANSI control sequences from a list of bytes. (Ensures proper JSON serialization)
-stripAnsiControl : List U8 -> List U8
-stripAnsiControl = \bytes ->
-    when List.findFirstIndex bytes (\b -> b == 27) is
-        Ok escapeIndex -> 
-            { before: lhs, others: remainder } = List.splitAt bytes escapeIndex
-            when List.findFirstIndex remainder (\b -> (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')) is
-                Ok controlIndex -> 
-                    { before: _, others: rhs } = List.splitAt remainder (controlIndex + 1)
-                    List.concat lhs (stripAnsiControl rhs)
-                Err _ -> bytes
-        Err _ -> bytes
+strip_ansi_control : List U8 -> List U8
+strip_ansi_control = |bytes|
+    when List.find_first_index(bytes, |b| b == 27) is
+        Ok(escape_index) ->
+            { before: lhs, others: remainder } = List.split_at(bytes, escape_index)
+            when List.find_first_index(remainder, |b| (b >= 'A' and b <= 'Z') or (b >= 'a' and b <= 'z')) is
+                Ok(control_index) ->
+                    { before: _, others: rhs } = List.split_at(remainder, (control_index + 1))
+                    List.concat(lhs, strip_ansi_control(rhs))
+
+                Err(_) -> bytes
+
+        Err(_) -> bytes
+
+        

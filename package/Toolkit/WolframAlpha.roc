@@ -3,82 +3,80 @@
 ## # USAGE:
 ## # Tool list to initialize the client
 ## tools = [wolframShortAnswer]
-## # Tool handler map is passed to Tools.handleToolCalls!
+## # Tool handler! map is passed to Tools.handleToolCalls!
 ## toolHandlerMap = Dict.fromList [
-##     (wolframShortAnswer.name, wolframShortAnswer.handler),
+##     (wolframShortAnswer.name, wolframShortAnswer.handler!),
 ## ]
 ## client = Client.init { apiKey, model: "tool-capable/model", tools }
 ## #...
 ## messages = Chat.appendUserMessage previousMessages newMessage
 ## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages 
+## updatedMessages = updateMessagesFromResponse response messages
 ##     |> Tools.handleToolCalls! client toolHandlerMap
 ## ```
-module { sendHttpReq, getEnvVar } -> [wolframShortAnswer]
+module { send_http_req!, get_env_var! } -> [wolfram_short_answer]
 
 import json.Json
 import InternalTools exposing [Tool]
-import Shared exposing [urlEncode]
+import Shared exposing [url_encode]
 
 ## Expose name, handler and tool for shortAnswer.
 ##
 ## This tool allows the model to ask Wolfram Alpha a question and get a short answer.
-wolframShortAnswer : { name : Str, handler : Str -> Task Str *, tool : Tool }
-wolframShortAnswer = {
-    name: shortAnswerTool.function.name,
-    handler: shortAnswerHandler,
-    tool: shortAnswerTool,
+wolfram_short_answer : { name : Str, handler! : Str => Result Str _, tool : Tool }
+wolfram_short_answer = {
+    name: short_answer_tool.function.name,
+    handler!: short_answer_handler!,
+    tool: short_answer_tool,
 }
 
 ## Tool definition for the shortAnswer function
-shortAnswerTool : Tool
-shortAnswerTool =
-    inputParam = {
+short_answer_tool : Tool
+short_answer_tool =
+    input_param = {
         name: "input",
         type: "string",
-        description:
-        """
-        The question to ask Wolfram Alpha.
-        """,
+        description: "The question to ask Wolfram Alpha.",
         required: Bool.true,
     }
-    InternalTools.buildTool
-        "wolframShortAnswer"
+    InternalTools.build_tool(
+        "wolframShortAnswer",
         """
         Ask Wolfram Alpha a question and get a short answer. 
         Wolfram can answer questions in many categories, including but not limited to:
         Mathematical computations, unit conversions, fact-based queries, scientific 
         questions, weather and location based data, date and time queries, financial 
         and economic data, historical events, and general knowledge questions.
-        """
-        [inputParam]
+        """,
+        [input_param],
+    )
 
 ## Handler for the shortAnswer tool
-shortAnswerHandler : Str -> Task Str _
-shortAnswerHandler = \args ->
+short_answer_handler! : Str => Result Str _
+short_answer_handler! = |args|
     decoded : Decode.DecodeResult { input : Str }
-    decoded = args |> Str.toUtf8 |> Decode.fromBytesPartial Json.utf8
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
     when decoded.result is
-        Err _ ->
-            Task.ok "Failed to decode args"
+        Err(_) ->
+            Ok("Failed to decode args")
 
-        Ok { input } ->
-            appId = getEnvVar! "WOLFRAMALPHA_APP_ID"
+        Ok({ input }) ->
+            app_id = try get_env_var!("WOLFRAMALPHA_APP_ID")
             request = {
                 method: Get,
                 headers: [],
-                url: "http://api.wolframalpha.com/v1/result?i=$(urlEncode input)&appid=$(appId)",
-                mimeType: "application/json",
+                url: "http://api.wolframalpha.com/v1/result?i=${url_encode(input)}&appid=${app_id}",
+                mime_type: "application/json",
                 body: [],
                 timeout: NoTimeout,
             }
-            when sendHttpReq request |> Task.result! is
-                Ok response ->
+            when send_http_req!(request) is
+                Ok(response) ->
                     response.body
-                    |> Str.fromUtf8
-                    |> Result.withDefault "Failed to decode API response"
-                    |> Task.ok
+                    |> Str.from_utf8
+                    |> Result.with_default("Failed to decode API response")
+                    |> Ok
 
-                Err _ ->
+                Err(_) ->
                     "Failed to get response from Wolfram Alpha"
-                    |> Task.ok
+                    |> Ok

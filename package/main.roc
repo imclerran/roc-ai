@@ -1,9 +1,9 @@
 package [
-    Chat, 
-    Client, 
-    Prompt, 
-    Tools, 
-    Toolkit.FileSystem, 
+    Chat,
+    Client,
+    Prompt,
+    Tools,
+    Toolkit.FileSystem,
     Toolkit.OpenWeatherMap,
     Toolkit.Roc,
     Toolkit.Serper,
@@ -12,6 +12,6 @@ package [
     Toolkit.WolframAlpha,
     Toolkit.WorldTimeApi,
 ] {
-    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.11.0/z45Wzc-J39TLNweQUoLw3IGZtkQiEN3lTBv3BXErRjQ.tar.br",
-    iso: "https://github.com/imclerran/roc-isodate/releases/download/v0.5.2/4h2zENssbUDlWTTsTuwCmb0tal733VWhjft8LO7WcQo.tar.br",
+    json: "https://github.com/lukewilliamboswell/roc-json/releases/download/0.12.0/1trwx8sltQ-e9Y2rOB4LWUWLS_sFVyETK8Twl0i9qpw.tar.gz",
+    iso: "https://github.com/imclerran/roc-isodate/releases/download/v0.6.0/79DATSmwkFXMsS0dF7w1RTHeQCGwFNzh9zylic4Fw9w.tar.br",
 }
