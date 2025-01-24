@@ -36,9 +36,6 @@ loop! = |client|
 print_last_message! = |messages|
     when List.last(messages) is
         Ok({ role, content }) if role == "assistant" ->
-            Stdout.line!(("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Magenta) })))
-
-        Ok({ role, content }) if role == "system" ->
             Stdout.line!(("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Cyan) })))
 
         _ -> Ok({})
@@ -53,3 +50,4 @@ tool_handler_map =
             (serper.name, serper.handler!),
         ],
     )
+        
