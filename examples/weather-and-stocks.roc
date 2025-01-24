@@ -18,7 +18,7 @@ import ansi.ANSI as Ansi
 main! = |_|
     api_key = Env.var!("OPENAI_API_KEY")?
     client = Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o", tools: [geocoding.tool, current_weather.tool, serper.tool] })
-    Stdout.line!(("Assistant: Ask me about the weather, or anything on the web!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
+    Stdout.line!(("Assistant: Ask me about the weather or stock prices!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
     loop!(client)
     
 loop! : Chat.Client => Result {} _
