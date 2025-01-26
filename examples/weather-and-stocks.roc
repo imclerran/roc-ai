@@ -26,7 +26,7 @@ loop! = |client|
     Stdout.write!("You: ")?
     with_query = Chat.append_user_message(client, Stdin.line!({})?, {})
     response = Http.send!(Chat.build_http_request(with_query, {}))?
-    with_response = Chat.update_message_list(with_query, response)?
+    with_response = Chat.update_messages(with_query, response)?
     with_final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
     print_last_message!(with_final_answer.messages)?
     loop!(with_final_answer)

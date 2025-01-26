@@ -9,7 +9,7 @@ module [
     build_http_request,
     decode_error_response,
     decode_response,
-    update_message_list,
+    update_messages,
     decode_top_message_choice,
     new_client,
 ]
@@ -513,8 +513,8 @@ decode_top_message_choice = |response_body_bytes|
 decode_error_response = Shared.decode_error_response
 
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
-update_message_list : Client, HttpResponse-> Result Client _
-update_message_list = |client, response|
+update_messages : Client, HttpResponse-> Result Client _
+update_messages = |client, response|
     if response.status >= 200 and response.status <= 299 then
         message = decode_top_message_choice(response.body)?
         updated = List.append(client.messages, message)

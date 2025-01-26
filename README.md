@@ -36,7 +36,7 @@ main! = |_|
         Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o" })
         |> Chat.append_user_message("Hello, computer!", {})
     response = Http.send!(Chat.build_http_request(client, {}))?
-    messages = Chat.update_message_list(client, response)? |> .messages
+    messages = Chat.update_messages(client, response)? |> .messages
     when messages is
         [.., message] -> Stdout.line!(message.content)
         _ -> Ok({})

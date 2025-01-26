@@ -59,7 +59,7 @@ handle_tool_calls! = |client, tool_handler_map, { max_model_calls ?? Num.max_u32
                 tool_messages = dispatch_tool_calls!(tool_calls, tool_handler_map)?
                 client2 = Client.set_messages(client, List.join[client.messages, tool_messages])
                 response = send_http_req!(Chat.build_http_request(client2, tc))?
-                client3 = Chat.update_message_list(client2, response)?
+                client3 = Chat.update_messages(client2, response)?
                 handle_tool_calls!(client3, tool_handler_map, { max_model_calls: max_model_calls - 1 })
 
         _ -> Ok(client)
