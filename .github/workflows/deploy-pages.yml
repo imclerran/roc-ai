@@ -20,10 +20,10 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4.2.2
       - name: Install Roc
-        uses: hasnep/setup-roc@v0.4.0
+        uses: hasnep/setup-roc@v0.5.0
         with:
           roc-version: nightly
-          testing: "true"
+          testing: "auto"
       - name: Generate docs
         run: roc docs package/main.roc
       - name: List contents of generated-docs directory (before fix paths)
