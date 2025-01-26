@@ -9,7 +9,7 @@ import cli.Stdin
 import cli.Http
 import cli.Env
 
-import ai.Chat
+import ai.Chat exposing [Message]
 import ai.Tools { send_http_req!: Http.send! }
 import ai.Toolkit.OpenWeatherMap { send_http_req!: Http.send!, get_env_var!: Env.var! } exposing [geocoding, current_weather]
 import ai.Toolkit.Serper { send_http_req!: Http.send!, get_env_var!: Env.var! } exposing [serper]
@@ -20,19 +20,19 @@ main! = |_|
     client = Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o", tools: [geocoding.tool, current_weather.tool, serper.tool] })
     Stdout.line!(("Assistant: Ask me about the weather or stock prices!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
     loop!(client)
-    
+
 loop! : Chat.Client => Result {} _
 loop! = |client|
     Stdout.write!("You: ")?
-    client2 = Chat.append_user_message(client, Stdin.line!({})?, {})
-    response = Http.send!(Chat.build_http_request(client2, {}))?
-    client3 = Chat.update_message_list(client2, response)?
-    client4 = Tools.handle_tool_calls!(client3, tool_handler_map, { max_model_calls: 10 })?
-    print_last_message!(client4.messages)?
-    loop!( client4 )
+    with_query = Chat.append_user_message(client, Stdin.line!({})?, {})
+    response = Http.send!(Chat.build_http_request(with_query, {}))?
+    with_response = Chat.update_message_list(with_query, response)?
+    final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(final_answer.messages)?
+    loop!(final_answer)
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
-# print_last_message : List Message => Result {} _
+print_last_message! : List Message => Result {} _
 print_last_message! = |messages|
     when List.last(messages) is
         Ok({ role, content }) if role == "assistant" ->
@@ -50,4 +50,3 @@ tool_handler_map =
             (serper.name, serper.handler!),
         ],
     )
-        
