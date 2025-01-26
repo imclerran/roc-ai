@@ -27,11 +27,10 @@ loop! = |client|
     with_query = Chat.append_user_message(client, Stdin.line!({})?, {})
     response = Http.send!(Chat.build_http_request(with_query, {}))?
     with_response = Chat.update_message_list(with_query, response)?
-    final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
-    print_last_message!(final_answer.messages)?
-    loop!(final_answer)
+    with_final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(with_final_answer.messages)?
+    loop!(with_final_answer)
 
-# Print the last message in the list of messages. Will only print assistant and system messages.
 print_last_message! : List Message => Result {} _
 print_last_message! = |messages|
     when List.last(messages) is
@@ -40,7 +39,6 @@ print_last_message! = |messages|
 
         _ -> Ok({})
 
-## Map of tool names to tool handlers
 tool_handler_map : Dict Str (Str => Result Str _)
 tool_handler_map =
     Dict.from_list(

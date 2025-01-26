@@ -35,18 +35,18 @@ main! = |_|
     loop!(client)?
     Ok({})
 
-loop! : Chat.Client => Result _ _
+loop! : Chat.Client => Result {} []_
 loop! = |client|
     Stdout.write!("You: ")?
-    client2 = Chat.append_user_message(client, Stdin.line!({})?, {})
-    response = Http.send!(Chat.build_http_request(client, {}))?
-    client3 = Chat.update_message_list(client2, response)?
-    client4 = Tools.handle_tool_calls!(client3, tool_handler_map, { max_model_calls: 10 })?
-    print_last_message!(client4.messages)?
-    loop!(client4)
+    with_query = Chat.append_user_message(client, Stdin.line!({})?, {})
+    response = Http.send!(Chat.build_http_request(with_query, {}))?
+    with_response = Chat.update_message_list(with_query, response)?
+    final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
+    print_last_message!(final_answer.messages)?
+    loop!(final_answer)
 
 ## Initialize the workspace directory
-init_workspace! : {} => Result {} _
+init_workspace! : {} => Result {} [InvalidCwd]
 init_workspace! = |{}|
     work_path = "./agent-workspace" |> Path.from_str
     Path.create_all!(work_path) |> Result.on_err!(|_err| Ok {}) |> try
@@ -73,7 +73,7 @@ init_messages = |client|
     )
 
 # Print the last message in the list of messages. Will only print assistant and system messages.
-print_last_message! : List Message => Result {} _
+print_last_message! : List Message => Result {} [StdoutErr _]
 print_last_message! = |messages|
     when List.last(messages) is
         Ok({ role, content }) if role == "assistant" ->
