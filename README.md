@@ -32,9 +32,9 @@ This package is still in WIP 🛠️ stages, so the interface may be subject to 
 ```roc
 main! = |_|
     api_key = Env.var!("OPENAI_API_KEY")?
-    query = "How are you today?"
-    client = Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o-mini" })
-        |> Chat.append_user_message(query, {})
+    client =
+        Chat.new_client({ api: OpenAI, api_key, model: "gpt-4o" })
+        |> Chat.append_user_message("Hello, computer!", {})
     response = Http.send!(Chat.build_http_request(client, {}))?
     messages = Chat.update_message_list(client, response)? |> .messages
     when messages is
