@@ -37,8 +37,8 @@ main! = |_|
         |> Chat.append_user_message("Hello, computer!", {})
     response = Http.send!(Chat.build_http_request(client, {}))?
     messages = Chat.update_messages(client, response)? |> .messages
-    when messages is
-        [.., message] -> Stdout.line!(message.content)
+    when List.last(messages) is
+        Ok(message) -> Stdout.line!(message.content)
         _ -> Ok({})
 ```
 
