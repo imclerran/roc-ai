@@ -79,9 +79,6 @@ print_last_message! = |messages|
         Ok({ role, content }) if role == "assistant" ->
             Stdout.line!(("\nAssistant: ${Str.trim(content)}\n" |> Ansi.color({ fg: Standard(Magenta) })))
 
-        Ok({ role, content }) if role == "system" ->
-            Stdout.line!(("\nAssistant: ${Str.trim(content)}\n" |> Ansi.color({ fg: Standard(Cyan) })))
-
         _ -> Ok({})
 
 ## List of tool definitions to be given to the AI model
