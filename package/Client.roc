@@ -1,6 +1,7 @@
 ## Client for the OpenRouter.ai API. This module contains the Client object, which stores configuration for openrouter.ai API requrests, as well as the new function, and functions to set various configuration options.
 module [
     Client,
+    Api,
     new,
     get_api_url,
     set_api,
@@ -31,7 +32,7 @@ module [
 ]
 
 import json.Option exposing [Option]
-import Shared exposing [TimeoutConfig, ApiTarget, Message]
+import Shared exposing [TimeoutConfig, Message]
 import InternalTools exposing [Tool]
 
 ## The record used to store configuration for the OpenRouter API client.
@@ -58,7 +59,7 @@ import InternalTools exposing [Tool]
 ## }
 ## ```
 Client : {
-    api : ApiTarget,
+    api : Api,
     api_key : Str,
     model : Str,
     request_timeout : TimeoutConfig,
@@ -93,7 +94,7 @@ default_url = "https://openrouter.ai/api/v1/chat/completions"
 ## ```
 new :
     {
-        api ?? ApiTarget,
+        api ?? Api,
         api_key : Str,
         model ?? Str,
         request_timeout ?? TimeoutConfig,
@@ -145,6 +146,11 @@ new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? 
     |> set_tools(tools)
     |> set_system(system)
 
+## ```
+## ApiTarget : [OpenRouter, OpenAI, Anthropic, OpenAICompliant { url: Str }]
+## ```
+Api : Shared.ApiTarget
+
 get_api_url : Client -> Str
 get_api_url = |client|
     when client.api is
@@ -159,7 +165,7 @@ set_model : Client, Str -> Client
 set_model = |client, model| { client & model }
 
 ## Set the URL to be used for the API requests. (Change with care - while the openrouter.ai API is similar to OpenAI's, there may be some unexpected differences.)
-set_api : Client, ApiTarget -> Client
+set_api : Client, Api -> Client
 set_api = |client, api| { client & api }
 
 set_api_key : Client, Str -> Client
