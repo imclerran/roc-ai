@@ -24,7 +24,7 @@ main! = |_|
 loop! = |client|
     Stdout.write!("You: ")?
     query = Stdin.line!({})?
-    with_query = Chat.append_user_message(client, query, {})
+    with_query = Chat.add_user_message(client, query, {})
     response = Http.send!(Chat.build_http_request(with_query, {}))?
     with_answer = Chat.update_messages(with_query, response)?
     print_last_message!(with_answer.messages)?
@@ -90,7 +90,7 @@ get_client! = |{}|
         Ok({ api: OpenAI, model }) ->
             api_key = Env.var!("OPENAI_API_KEY")?
             print_choice!(choice, OpenAI, model)?
-            Client.new({ api: OpenAI, api_key, model }) |> Chat.append_system_message(system_message, {}) |> Ok
+            Client.new({ api: OpenAI, api_key, model }) |> Chat.add_system_message(system_message, {}) |> Ok
 
         Ok({ api: Anthropic, model }) ->
             api_key = Env.var!("ANTHROPIC_API_KEY")?
@@ -101,11 +101,11 @@ get_client! = |{}|
             provider_order = Dict.get(preferred_providers, model) |> Result.with_default([])
             api_key = Env.var!("OPENROUTER_API_KEY")?
             print_choice!(choice, OpenRouter, model)?
-            Client.new({ api: OpenRouter, api_key, model, provider_order }) |> Chat.append_system_message(system_message, {}) |> Ok
+            Client.new({ api: OpenRouter, api_key, model, provider_order }) |> Chat.add_system_message(system_message, {}) |> Ok
 
         Ok({ api: OpenAICompliant { url }, model }) ->
             print_choice!(choice, OpenAICompliant { url }, model)?
-            Client.new({ api: OpenAICompliant { url }, api_key: "", model }) |> Chat.append_system_message(system_message, {}) |> Ok
+            Client.new({ api: OpenAICompliant { url }, api_key: "", model }) |> Chat.add_system_message(system_message, {}) |> Ok
 
         Err _ ->
             "Oops! Invalid API choice.\n"

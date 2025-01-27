@@ -38,7 +38,7 @@ main! = |_|
 loop! : Chat.Client => Result {} []_
 loop! = |client|
     Stdout.write!("You: ")?
-    with_query = Chat.append_user_message(client, Stdin.line!({})?, {})
+    with_query = Chat.add_user_message(client, Stdin.line!({})?, {})
     response = Http.send!(Chat.build_http_request(with_query, {}))?
     with_response = Chat.update_messages(with_query, response)?
     final_answer = Tools.handle_tool_calls!(with_response, tool_handler_map, { max_model_calls: 10 })?
@@ -56,8 +56,8 @@ init_workspace! = |{}|
 # init_messages : Client -> Client
 init_messages = |client|
     client
-    |> Chat.append_system_message(tutorial, { cached: Bool.true })
-    |> Chat.append_user_message(
+    |> Chat.add_system_message(tutorial, { cached: Bool.true })
+    |> Chat.add_user_message(
         # claude does not put high priority on system messages, so this is sent as a user message.
         """
         CRITICAL: Do not ever change the app header, including platform or package urls, which are set by the rocStart tool.

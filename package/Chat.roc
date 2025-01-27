@@ -3,9 +3,9 @@ module [
     ChatResponseBody,
     Message,
     Client,
-    append_assistant_message,
-    append_system_message,
-    append_user_message,
+    add_assistant_message,
+    add_system_message,
+    add_user_message,
     build_http_request,
     decode_error_response,
     decode_response,
@@ -524,8 +524,8 @@ update_messages = |client, response|
         Err(HttpError { status: response.status, body: reponse_body })
 
 ## Append a system message to the list of messages.
-append_system_message : Client, Str, { cached ?? Bool } -> Client
-append_system_message = |client, text, { cached ?? Bool.false }|
+add_system_message : Client, Str, { cached ?? Bool } -> Client
+add_system_message = |client, text, { cached ?? Bool.false }|
     when client.api is
         Anthropic ->
             updated = Str.join_with([option_to_str(client.system), text], "\n\n")
@@ -535,13 +535,13 @@ append_system_message = |client, text, { cached ?? Bool.false }|
             { client & messages: updated }
 
 ## Append a user message to the list of messages.
-append_user_message : Client, Str, { cached ?? Bool } -> Client
-append_user_message = |client, text, { cached ?? Bool.false }|
+add_user_message : Client, Str, { cached ?? Bool } -> Client
+add_user_message = |client, text, { cached ?? Bool.false }|
     updated = List.append(client.messages, { role: "user", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
     { client & messages: updated }
 
 ## Append an assistant message to the list of messages.
-append_assistant_message : Client, Str, { cached ?? Bool } -> Client
-append_assistant_message = |client, text, { cached ?? Bool.false }|
+add_assistant_message : Client, Str, { cached ?? Bool } -> Client
+add_assistant_message = |client, text, { cached ?? Bool.false }|
     updated = List.append(client.messages, { role: "assistant", content: text, tool_calls: [], tool_call_id: "", name: "", cached })
     { client & messages: updated }
