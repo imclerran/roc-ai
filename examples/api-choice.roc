@@ -36,9 +36,6 @@ print_last_message! = |messages|
         Ok({ role, content }) if role == "assistant" ->
             Stdout.line! (("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Magenta) })))
 
-        Ok({ role, content }) if role == "system" ->
-            Stdout.line! (("\nSystem: ${content}\n" |> Ansi.color({ fg: Standard(Blue) })))
-
         _ -> Ok({})
 
 ## Define the preferred providers for each model
@@ -51,7 +48,7 @@ model_choices = [
     { api: OpenRouter, model: "gpt-4o-mini" },
     { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" },
     { api: OpenRouter, model: "deepseek/deepseek-r1" },
-    { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "deepseek-r1-distill-qwen-1.5b" },
+    { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "phi-3.1-mini-128k-instruct" },
 ]
 
 ## Convert an API tag to a string
