@@ -49,7 +49,7 @@ wikipedia_search_tool =
         required: Bool.true,
     }
     InternalTools.build_tool(
-        "wikipediaSearch",
+        "wikipedia_search",
         "Search Wikipedia for a given query. This will return a list of articles that match the query.",
         [query_param, limit_param],
     )
@@ -58,9 +58,12 @@ wikipedia_search_tool =
 wikipedia_search_handler! : Str => Result Str _
 wikipedia_search_handler! = |args|
     decoded : Decode.DecodeResult { search : Str, limit : U32 }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ search, limit }) ->
@@ -103,7 +106,7 @@ wikipedia_parse_tool =
         required: Bool.true,
     }
     InternalTools.build_tool(
-        "wikipediaParse",
+        "wikipedia_parse",
         "Parse a Wikipedia article. This will return the plaintext content of the article.",
         [title_param],
     )
@@ -112,9 +115,12 @@ wikipedia_parse_tool =
 wikipedia_parse_handler! : Str => Result Str _
 wikipedia_parse_handler! = |args|
     decoded : Decode.DecodeResult { page : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ page }) ->

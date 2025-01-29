@@ -37,7 +37,7 @@ tool =
         required: Bool.true,
     }
     InternalTools.build_tool(
-        "currentTime",
+        "current_time",
         """
         Get the current time data for a given timezone. This includes: utc_offset, timezone, day_of_week, day_of_year,
         datetime, utc_datetime, unixtime, raw_offset, week_number, dst, abbreviation, dst_offset, dst_from, dst_until.
@@ -49,9 +49,12 @@ tool =
 handler! : Str => Result Str _
 handler! = |args|
     decoded : Decode.DecodeResult { tz : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded =
+        args
+        |> Str.to_utf8
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ tz }) ->

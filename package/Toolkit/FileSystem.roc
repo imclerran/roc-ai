@@ -50,9 +50,12 @@ list_directory_tool =
 list_directory_handler! : Str => Result Str _
 list_directory_handler! = |args|
     decoded : Decode.DecodeResult { path : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ path }) ->
@@ -92,9 +95,12 @@ list_file_tree_tool =
 list_file_tree_handler! : Str => Result Str _
 list_file_tree_handler! = |args|
     decoded : Decode.DecodeResult { path : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ path }) ->
@@ -153,9 +159,12 @@ read_file_contents_tool =
 read_file_contents_handler! : Str => Result Str _
 read_file_contents_handler! = |args|
     decoded : Decode.DecodeResult { path : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ path }) ->
@@ -205,9 +214,12 @@ write_file_contents_tool =
 write_file_contents_handler! : Str => Result Str _
 write_file_contents_handler! = |args|
     decoded : Decode.DecodeResult { path : Str, content : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ path, content }) ->

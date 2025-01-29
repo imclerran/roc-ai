@@ -40,7 +40,7 @@ short_answer_tool =
         required: Bool.true,
     }
     InternalTools.build_tool(
-        "wolframShortAnswer",
+        "wolfram_short_answer",
         """
         Ask Wolfram Alpha a question and get a short answer. 
         Wolfram can answer questions in many categories, including but not limited to:
@@ -55,9 +55,12 @@ short_answer_tool =
 short_answer_handler! : Str => Result Str _
 short_answer_handler! = |args|
     decoded : Decode.DecodeResult { input : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ input }) ->

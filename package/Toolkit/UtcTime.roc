@@ -29,7 +29,7 @@ utc_now = {
 
 ## Tool definition for the utcNow function
 tool : Tool
-tool = build_tool("utcNow", "Get the current UTC time as an ISO 8601 string", [])
+tool = build_tool("utc_now", "Get the current UTC time as an ISO 8601 string", [])
 
 ## Handler for the utcNow tool
 handler! : Str => Result Str _

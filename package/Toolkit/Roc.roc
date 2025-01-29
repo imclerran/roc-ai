@@ -45,9 +45,12 @@ roc_tool =
 roc_handler! : Str => Result Str _
 roc_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ roc_file }) ->
@@ -85,9 +88,12 @@ roc_check_tool =
 roc_check_handler! : Str => Result Str _
 roc_check_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ roc_file }) ->
@@ -126,9 +132,12 @@ roc_test_tool =
 roc_test_handler! : Str => Result Str _
 roc_test_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ roc_file }) ->
@@ -179,9 +188,12 @@ roc_start_tool =
 roc_start_handler! : Str => Result Str _
 roc_start_handler! = |args|
     decoded : Decode.DecodeResult { app_name : Str, platform : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ app_name, platform }) ->
