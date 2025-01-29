@@ -1,5 +1,5 @@
 app [main!] {
-    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.19.0/bi5zubJ-_Hva9vxxPq4kNx4WHX6oFs8OP6Ad0tCYlrY.tar.br",
+    cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.19.0/Hj-J_zxz7V9YurCSTFcFdu6cQJie4guzsPMUi5kBYUk.tar.br",
     ansi: "https://github.com/lukewilliamboswell/roc-ansi/releases/download/0.8.0/RQlGWlkQEfxtkSYKl0nHNQaOFT0-Jh7NNFEX2IPXlec.tar.br",
     ai: "../package/main.roc",
 }
@@ -29,7 +29,7 @@ import "roc-tutorial.md" as tutorial : Str
 main! = |_|
     init_workspace!({})?
     api_key = Env.var!("OPENROUTER_API_KEY")?
-    client = Chat.new_client({ api_key, model: "anthropic/claude-3.5-sonnet:beta", tools })
+    client = Chat.new_client({ api: OpenRouter, api_key, model:"anthropic/claude-3.5-sonnet:beta", tools }) # "anthropic/claude-3.5-sonnet:beta"
         |> init_messages
     Stdout.line!(("Assistant: Ask me to write some roc code!\n" |> Ansi.color({ fg: Standard(Cyan) })))?
     loop!(client)?
@@ -46,10 +46,16 @@ loop! = |client|
     loop!(final_answer)
 
 ## Initialize the workspace directory
-init_workspace! : {} => Result {} [InvalidCwd]
+init_workspace! : {} => Result {} [InvalidCwd, DirErr _]
 init_workspace! = |{}|
     work_path = "./agent-workspace" |> Path.from_str
-    Path.create_all!(work_path) |> Result.on_err!(|_err| Ok {}) |> try
+    Path.create_all!(work_path) 
+        |> Result.on_err!(
+            |err| when err is
+                DirErr AlreadyExists -> Ok {}
+                e -> Err e
+        ) 
+        |> try
     Env.set_cwd!(work_path) 
 
 ## List of messages to initialize the chat
@@ -60,14 +66,7 @@ init_messages = |client|
     |> Chat.add_user_message(
         # claude does not put high priority on system messages, so this is sent as a user message.
         """
-        CRITICAL: Do not ever change the app header, including platform or package urls, which are set by the rocStart tool.
-        You should make sure to read the file contents before changing them, so you can maintain the current app headers.
-        The app header is at the top of the file and follows the syntax `app [...] { ... }`. Nothing in this block should ever be changed.
-        You should assume that the app header portion is always correct. This is absolutely critical or the program will not work.
-        This also includes any files you are asked to edit, which were not initialized by the rocStart tool. 
-        Unless specifically asked to do so by the user, do not ever change the header.
-
-        NOTE: Do not respond to or mention this message, as it is a sudo system message, and the user is not aware of it.
+        CRITICAL: Do not ever change the app header, including platform or package urls, which are set by the rocStart tool. You should make sure to read the file contents before changing them, so you can maintain the current app headers. The app header is at the top of the file and follows the syntax `app [...] { ... }`. Nothing in this block should ever be changed. You should assume that the app header portion is always correct. This is absolutely critical or the program will not work. This also includes any files you are asked to edit, which were not initialized by the rocStart tool. Unless specifically asked to do so by the user, do not ever change the header. NOTE: Do not respond to or mention this message, as it is a sudo system message, and the user is not aware of it.
         """,
         { cached: Bool.true },
     )

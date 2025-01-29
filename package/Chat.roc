@@ -18,7 +18,7 @@ import json.Json
 import json.Option exposing [Option]
 
 import Client
-import InternalTools exposing [ToolCall, ToolChoice, Tool]
+import InternalTools exposing [ToolCall, ToolChoice]
 import Shared exposing [
     ApiError,
     HttpResponse,
@@ -125,7 +125,7 @@ OpenRouterReqBody : {
     # toolChoice: Option Tools.ToolChoice,
 }
 
-OpenAIReqBody : {
+OpenAIRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
@@ -138,7 +138,7 @@ OpenAIReqBody : {
     # toolChoice: Option Tools.ToolChoice,
 }
 
-AnthropicReqBody : {
+AnthropicRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
@@ -179,19 +179,15 @@ CacheContent : {
 ## Create a request object to be sent with basic-cli's Http.send using ChatML messages.
 build_http_request : Client, { tool_choice ?? ToolChoice } -> RequestObject
 build_http_request = |client, { tool_choice ?? Auto }|
-    tools =
-        when Option.get(client.tools) is
-            Some(tool_list) -> tool_list
-            None -> []
     {
         method: POST,
         headers: get_headers(client),
         uri: get_api_url(client.api),
         body: build_request_body(update_system_message(client, client.messages))
         |> inject_messages(to_compatible_messages(client.messages, client.api))
-        |> inject_tools(tools, client.api)
-        |> inject_tool_choice(tool_choice, tools, client.api),
-        timeout_ms: client.request_timeout,
+        |> inject_tools(client)
+        |> inject_tool_choice(tool_choice, client),
+        timeout_ms: client.timeout_ms,
     }
 
 get_headers = |client|
@@ -224,7 +220,7 @@ build_request_body = |client|
         OpenAICompliant _ -> openai_request_body(client)
 
 openai_request_body = |client|
-    body : OpenAIReqBody
+    body : OpenAIRequestBody
     body = {
         model: client.model,
         messages: [],
@@ -246,7 +242,7 @@ openai_request_body = |client|
     )
 
 anthropic_request_body = |client|
-    body : AnthropicReqBody
+    body : AnthropicRequestBody
     body = {
         model: client.model,
         messages: [],
@@ -296,20 +292,21 @@ openrouter_request_body = |client|
         ),
     )
 
-inject_tools : List U8, List Tool, _ -> List U8
-inject_tools = |bytes, tools, api|
-    if List.is_empty tools then
+inject_tools : List U8, Client -> List U8
+inject_tools = |bytes, client|
+    tools = option_to_list(client.tools)
+    if List.is_empty(tools) then
         bytes
     else
-        when api is
+        when client.api is
             Anthropic -> InternalTools.inject_tools_anthropic(bytes, tools)
             _ -> InternalTools.inject_tools(bytes, tools)
 
-inject_tool_choice = |bytes, tool_choice, tools, api|
-    if List.is_empty tools then
+inject_tool_choice = |bytes, tool_choice, client|
+    if List.is_empty option_to_list(client.tools) then
         bytes
     else
-        when api is
+        when client.api is
             Anthropic -> InternalTools.inject_tool_choice_anthropic(bytes, tool_choice)
             _ -> InternalTools.inject_tool_choice(bytes, tool_choice)
      
@@ -392,7 +389,7 @@ update_system_message = |client, messages|
             new_system = List.keep_if(messages, |message| (message.role == "system") and !Str.contains(system, message.content))
                 |> List.map .content
                 |> List.prepend(system) 
-                |> Str.join_with("\n") 
+                |> Str.join_with("\\n") 
             Client.set_system(client, new_system)
         _ -> client
 
@@ -410,21 +407,21 @@ to_compatible_messages = |messages, api|
 new_client = Client.new
 
 ## Decode the JSON response body to a ChatML style request.
-decode_response : List U8 -> Result ChatResponseBody _
+decode_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_response = |body_bytes|
     cleaned_body = drop_leading_garbage(body_bytes)
     when decode_default_response(cleaned_body) is
         Ok response -> Ok response
         Err _ -> decode_anthropic_response(cleaned_body)
 
-decode_default_response : List U8 -> Result ChatResponseBody _
+decode_default_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_default_response = |body_bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeChatResponseBody
     decoded = Decode.from_bytes_partial(body_bytes, decoder)
     decoded.result |> Result.map_ok(from_decode_response)
 
-decode_anthropic_response : List U8 -> Result ChatResponseBody _
+decode_anthropic_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_anthropic_response = |body_bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeAnthropicResponseBody
@@ -493,7 +490,7 @@ convert_decode_message = |decode_message| {
 }
 
 ## Decode the JSON response body to the first message in the list of choices.
-decode_top_message_choice : List U8 -> Result Message [ApiError ApiError, DecodingError, NoChoices, BadJson Str]
+decode_top_message_choice : List U8 -> Result Message [NoChoices, ApiError ApiError, BadJson Str]
 decode_top_message_choice = |response_body_bytes|
     when decode_response(response_body_bytes) is
         Ok(body) ->
@@ -503,17 +500,16 @@ decode_top_message_choice = |response_body_bytes|
 
         Err(_) ->
             when decode_error_response(response_body_bytes) is
-                Ok(err) -> Err(ApiError(err.error))
-                Err(_) ->
-                    when response_body_bytes |> Str.from_utf8 is
-                        Ok(str) -> Err(BadJson(str))
-                        Err(_) -> Err(DecodingError)
+                Ok(err_body) -> Err(ApiError(err_body.error))
+                Err(TooShort) -> 
+                    bad_json = Str.from_utf8_lossy(response_body_bytes)
+                    Err(BadJson bad_json)
 
 ## Decode the JSON response body of an API error message.
 decode_error_response = Shared.decode_error_response
 
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
-update_messages : Client, HttpResponse-> Result Client _
+update_messages : Client, HttpResponse-> Result Client [NoChoices, ApiError ApiError, BadJson Str, HttpError { body : Str, status : U16 }]
 update_messages = |client, response|
     if response.status >= 200 and response.status <= 299 then
         message = decode_top_message_choice(response.body)?

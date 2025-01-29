@@ -78,7 +78,7 @@ build_http_request = |client, prompt|
         ],
         uri: Client.get_api_url(client),
         body: encode_request_body(body),
-        timeout_ms: client.request_timeout,
+        timeout_ms: client.timeout_ms,
     }
 
 ## Build the request body to be sent in the Http request using a prompt string
