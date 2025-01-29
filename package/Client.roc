@@ -7,7 +7,7 @@ module [
     set_api,
     set_api_key,
     set_model,
-    set_request_timeout,
+    set_timeout_ms,
     set_provider_order,
     set_temperature,
     set_top_p,
@@ -26,9 +26,6 @@ module [
     default_url,
     set_system,
     set_messages,
-    # append_system_message,
-    # append_user_message,
-    # append_assistant_message,
 ]
 
 import json.Option exposing [Option]
@@ -62,7 +59,7 @@ Client : {
     api : Api,
     api_key : Str,
     model : Str,
-    request_timeout : TimeoutConfig,
+    timeout_ms : TimeoutConfig,
     provider_order : Option (List Str),
     temperature : F32,
     top_p : F32,
@@ -97,7 +94,7 @@ new :
         api ?? Api,
         api_key : Str,
         model ?? Str,
-        request_timeout ?? TimeoutConfig,
+        timeout_ms ?? TimeoutConfig,
         provider_order ?? List Str,
         temperature ?? F32,
         top_p ?? F32,
@@ -113,14 +110,15 @@ new :
         route ?? [UseFallback, NoFallback],
         tools ?? List Tool,
         system ?? Str,
+
     }
     -> Client
-new = |{ api ?? OpenRouter, api_key, model ?? default_model, request_timeout ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "", messages ?? [] }|
+new = |{ api ?? OpenRouter, api_key, model ?? default_model, timeout_ms ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "", messages ?? [] }|
     {
         api,
         api_key,
         model,
-        request_timeout,
+        timeout_ms,
         provider_order: Option.none({}),
         temperature,
         top_p,
@@ -173,8 +171,8 @@ set_api_key = |client, api_key| { client & api_key }
 
 ## Set the request timeout for the API requests.
 ## Default: NoTimeout
-set_request_timeout : Client, TimeoutConfig -> Client
-set_request_timeout = |client, request_timeout| { client & request_timeout }
+set_timeout_ms : Client, TimeoutConfig -> Client
+set_timeout_ms = |client, timeout_ms| { client & timeout_ms }
 
 ## Set the provider order for the API requests.
 ## Default: [] - use all providers.
