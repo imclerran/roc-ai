@@ -407,21 +407,21 @@ to_compatible_messages = |messages, api|
 new_client = Client.new
 
 ## Decode the JSON response body to a ChatML style request.
-decode_response : List U8 -> Result ChatResponseBody _
+decode_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_response = |body_bytes|
     cleaned_body = drop_leading_garbage(body_bytes)
     when decode_default_response(cleaned_body) is
         Ok response -> Ok response
         Err _ -> decode_anthropic_response(cleaned_body)
 
-decode_default_response : List U8 -> Result ChatResponseBody _
+decode_default_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_default_response = |body_bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeChatResponseBody
     decoded = Decode.from_bytes_partial(body_bytes, decoder)
     decoded.result |> Result.map_ok(from_decode_response)
 
-decode_anthropic_response : List U8 -> Result ChatResponseBody _
+decode_anthropic_response : List U8 -> Result ChatResponseBody [TooShort]
 decode_anthropic_response = |body_bytes|
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
     decoded : Decode.DecodeResult DecodeAnthropicResponseBody
@@ -490,7 +490,7 @@ convert_decode_message = |decode_message| {
 }
 
 ## Decode the JSON response body to the first message in the list of choices.
-decode_top_message_choice : List U8 -> Result Message [ApiError ApiError, NoChoices, BadJson Str]
+decode_top_message_choice : List U8 -> Result Message [NoChoices, ApiError ApiError, BadJson Str]
 decode_top_message_choice = |response_body_bytes|
     when decode_response(response_body_bytes) is
         Ok(body) ->
@@ -509,7 +509,7 @@ decode_top_message_choice = |response_body_bytes|
 decode_error_response = Shared.decode_error_response
 
 ## Decode the response from the OpenRouter API and append the first message choice to the list of messages. Any errors encountered will be appended as system messages.
-update_messages : Client, HttpResponse-> Result Client _
+update_messages : Client, HttpResponse-> Result Client [NoChoices, ApiError ApiError, BadJson Str, HttpError { body : Str, status : U16 }]
 update_messages = |client, response|
     if response.status >= 200 and response.status <= 299 then
         message = decode_top_message_choice(response.body)?
