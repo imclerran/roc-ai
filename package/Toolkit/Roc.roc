@@ -35,7 +35,7 @@ roc = {
 roc_tool : Tool
 roc_tool =
     roc_file_param = {
-        name: "rocFile",
+        name: "roc_file",
         type: "string",
         description: "The path to the .roc file to be executed. IE: `./path/to/file.roc`",
         required: Bool.true,
@@ -45,7 +45,7 @@ roc_tool =
 roc_handler! : Str => Result Str _
 roc_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
         Err(_) ->
             Ok("Failed to decode args")
@@ -80,12 +80,12 @@ roc_check_tool =
         description: "The path to the .roc file to be executed. IE: `./path/to/file.roc`",
         required: Bool.true,
     }
-    build_tool("rocCheck", "Check a Roc file for syntax errors", [roc_file_param])
+    build_tool("roc_check", "Check a Roc file for syntax errors", [roc_file_param])
 
 roc_check_handler! : Str => Result Str _
 roc_check_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
         Err(_) ->
             Ok("Failed to decode args")
@@ -116,17 +116,17 @@ roc_test = {
 roc_test_tool : Tool
 roc_test_tool =
     roc_file_param = {
-        name: "rocFile",
+        name: "roc_file",
         type: "string",
         description: "The path to the .roc file to be tested. IE: `./path/to/file.roc`",
         required: Bool.true,
     }
-    build_tool("rocTest", "Test the expect statements in a specified roc file.", [roc_file_param])
+    build_tool("roc_test", "Test the expect statements in a specified roc file.", [roc_file_param])
 
 roc_test_handler! : Str => Result Str _
 roc_test_handler! = |args|
     decoded : Decode.DecodeResult { roc_file : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
         Err(_) ->
             Ok("Failed to decode args")
@@ -157,7 +157,7 @@ roc_start = {
 roc_start_tool : Tool
 roc_start_tool =
     app_name_param = {
-        name: "appName",
+        name: "app_name",
         type: "string",
         description: "The name of the .roc application to be initialized. IE: `myApp` will generate `myApp.roc`",
         required: Bool.true,
@@ -169,12 +169,9 @@ roc_start_tool =
         required: Bool.true,
     }
     build_tool(
-        "rocStart",
+        "roc_start",
         """
-        Start a new Roc application with the specified name and platform. 
-        You should always use this tool when creating a new roc program,
-        and make sure to read read the generated output file before changing
-        it, so that the correct package and platform urls can be maintained.
+        Start a new Roc application with the specified name and platform. You should always use this tool when creating a new roc program, and make sure to read read the generated output file before changing it, so that the correct package and platform urls can be maintained.
         """,
         [app_name_param, platform_param],
     )
@@ -182,7 +179,7 @@ roc_start_tool =
 roc_start_handler! : Str => Result Str _
 roc_start_handler! = |args|
     decoded : Decode.DecodeResult { app_name : Str, platform : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase}))
     when decoded.result is
         Err(_) ->
             Ok("Failed to decode args")

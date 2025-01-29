@@ -197,10 +197,7 @@ write_file_contents_tool =
     }
     build_tool(
         "write_file_contents",
-        """
-        Write the text content to a file. Any existing file at the specified path will be overwritten.
-        If the file does not exist, it will be created, but parent directories must exist.
-        """,
+        "Write the text content to a file. Any existing file at the specified path will be overwritten. If the file does not exist, it will be created, but parent directories must exist.",
         [path_param, content_param],
     )
 
