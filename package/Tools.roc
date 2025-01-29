@@ -57,10 +57,10 @@ handle_tool_calls! = |client, tool_handler_map, { max_model_calls ?? Num.max_u32
             else
                 tc = if max_model_calls > 1 then { tool_choice: Auto } else { tool_choice: None }
                 tool_messages = dispatch_tool_calls!(tool_calls, tool_handler_map)?
-                client2 = Client.set_messages(client, List.join[client.messages, tool_messages])
-                response = send_http_req!(Chat.build_http_request(client2, tc))?
-                client3 = Chat.update_messages(client2, response)?
-                handle_tool_calls!(client3, tool_handler_map, { max_model_calls: max_model_calls - 1 })
+                with_tool_results = Client.set_messages(client, List.join[client.messages, tool_messages])
+                response = send_http_req!(Chat.build_http_request(with_tool_results, tc))?
+                with_model_response = Chat.update_messages(with_tool_results, response)?
+                handle_tool_calls!(with_model_response, tool_handler_map, { max_model_calls: max_model_calls - 1 })
 
         _ -> Ok(client)
 
