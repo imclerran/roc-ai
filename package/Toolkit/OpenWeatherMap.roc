@@ -46,9 +46,12 @@ geocoding_tool =
 geocoding_handler! : Str => Result Str _
 geocoding_handler! = |args|
     decoded : Decode.DecodeResult { q : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ q }) ->
@@ -103,15 +106,18 @@ current_weather_tool =
         "The units to return the weather in. Can be 'standard', 'metric', or 'imperial'. Standard is Kelvin, metric is Celsius, and imperial is Fahrenheit.",
         required: Bool.true,
     }
-    InternalTools.build_tool("currentWeather", "Get the current weather for a location using the openweathermap.org API", [lat_param, lon_param, units_param])
+    InternalTools.build_tool("current_weather", "Get the current weather for a location using the openweathermap.org API", [lat_param, lon_param, units_param])
 
 ## Handler for the currentWeather tool
 current_weather_handler! : Str => Result Str _
 current_weather_handler! = |args|
     decoded : Decode.DecodeResult { lat : F32, lon : F32, units : Str }
-    decoded = args |> Str.to_utf8 |> Decode.from_bytes_partial(Json.utf8)
+    decoded = 
+        args 
+        |> Str.to_utf8 
+        |> Decode.from_bytes_partial(Json.utf8_with({ field_name_mapping: SnakeCase }))
     when decoded.result is
-        Err(_) ->
+        Err(TooShort) ->
             Ok("Failed to decode args")
 
         Ok({ lat, lon, units }) ->
