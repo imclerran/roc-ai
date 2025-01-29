@@ -125,7 +125,7 @@ OpenRouterReqBody : {
     # toolChoice: Option Tools.ToolChoice,
 }
 
-OpenAIReqBody : {
+OpenAIRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
@@ -138,7 +138,7 @@ OpenAIReqBody : {
     # toolChoice: Option Tools.ToolChoice,
 }
 
-AnthropicReqBody : {
+AnthropicRequestBody : {
     model : Str,
     messages : List Message,
     temperature : F32,
@@ -220,7 +220,7 @@ build_request_body = |client|
         OpenAICompliant _ -> openai_request_body(client)
 
 openai_request_body = |client|
-    body : OpenAIReqBody
+    body : OpenAIRequestBody
     body = {
         model: client.model,
         messages: [],
@@ -242,7 +242,7 @@ openai_request_body = |client|
     )
 
 anthropic_request_body = |client|
-    body : AnthropicReqBody
+    body : AnthropicRequestBody
     body = {
         model: client.model,
         messages: [],
@@ -389,7 +389,7 @@ update_system_message = |client, messages|
             new_system = List.keep_if(messages, |message| (message.role == "system") and !Str.contains(system, message.content))
                 |> List.map .content
                 |> List.prepend(system) 
-                |> Str.join_with("\n") 
+                |> Str.join_with("\\n") 
             Client.set_system(client, new_system)
         _ -> client
 
