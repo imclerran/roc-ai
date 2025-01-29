@@ -83,7 +83,7 @@ drop_leading_garbage = |bytes|
         Err(_) -> bytes
 
 ## Decode the JSON response body of an API error message
-decode_error_response : List U8 -> Result ErrorResponse _
+decode_error_response : List U8 -> Result ErrorResponse [TooShort]
 decode_error_response = |body_bytes|
     cleaned_body = drop_leading_garbage(body_bytes)
     decoder = Json.utf8_with({ field_name_mapping: SnakeCase })
