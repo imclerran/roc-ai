@@ -2,15 +2,16 @@
 ## ```
 ## # USAGE:
 ## # Tool list to initialize the client
-## tools = [currentTime]
-## # Tool handler! map is passed to Tools.handleToolCalls!
-## toolHandlerMap = Dict.fromList [(currentTime.name, currentTime.handler!)]
-## client = Client.init { apiKey, model: "tool-capable/model", tools }
+## tools = [current_time.tool]
+## # Tool handler map is passed to Tools.handle_tool_calls!
+## tool_handler_map = Dict.from_list([(currentTime.name, currentTime.handler!)])
+## client = Client.new { apiKey, model: "tool-capable/model", tools }
 ## #...
-## messages = Chat.appendUserMessage previousMessages newMessage
-## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages
-##     |> Tools.handleToolCalls! client toolHandlerMap
+## messages = Chat.add_user_message(client, newMessage, {})
+## response = Http.send!(Chat.build_http_request(client, {}))?
+## with_tool_results = 
+##      Chat.update_messages(response, messages)?
+##     |> Tools.handle_tool_calls!(client toolHandlerMap, { max_model_calls: 5 })
 ## ```
 module { send_http_req! } -> [current_time]
 

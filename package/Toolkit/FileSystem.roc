@@ -2,20 +2,26 @@
 ## ```
 ## # USAGE:
 ## # Tool list to initialize the client
-## tools = [listDirectory, listFileTree, readFileContents, writeFileContents ]
-## # Tool handler map is passed to Tools.handleToolCalls!
-## toolHandlerMap = Dict.fromList [
-##     (listDirectory.name, listDirectory.handler),
-##     (listFileTree.name, listFileTree.handler),
-##     (readFileContents.name, readFileContents.handler),
-##     (writeFileContents.name, writeFileContents.handler),
+## tools = [
+##     list_directory.tool, 
+##     list_file_tree.tool, 
+##     read_file_contents.tool, 
+##     write_file_contents.tool,
 ## ]
-## client = Client.init { apiKey, model: "tool-capable/model", tools }
+## # Tool handler map is passed to Tools.handle_tool_calls!
+## tool_handler_map = Dict.from_list([
+##     (list_directory.name, listDirectory.handler),
+##     (list_file_tree.name, list_file_tree.handler),
+##     (read_file_contents.name, read_file_contents.handler),
+##     (write_file_contents.name, write_file_contents.handler),
+## ])
+## client = Client.new { apiKey, model: "tool-capable/model", tools }
 ## #...
-## messages = Chat.appendUserMessage previousMessages newMessage
-## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages
-##     |> Tools.handleToolCalls! client toolHandlerMap
+## messages = Chat.add_user_message(client, newMessage, {})
+## response = Http.send!(Chat.build_http_request(client, {}))?
+## with_tool_results = 
+##      Chat.update_messages(response, messages)?
+##     |> Tools.handle_tool_calls!(client toolHandlerMap, { max_model_calls: 5 })
 ## ```
 module { path_from_str, path_to_str, list_dir!, is_dir!, read_file!, write_utf8! } -> [
     list_directory,

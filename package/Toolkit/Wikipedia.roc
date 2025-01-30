@@ -2,18 +2,19 @@
 ## ```
 ## # USAGE:
 ## # Tool list to initialize the client
-## tools = [wikipediaSearch, wikipediaParse]
-## # Tool handler map is passed to Tools.handleToolCalls!
-## toolHandlerMap = Dict.fromList [
-##     (wikipediaSearch.name, wikipediaSearch.handler),
-##     (wikipediaParse.name, wikipediaParse.handler),
-## ]
-## client = Client.init { apiKey, model: "tool-capable/model", tools }
+## tools = [wikipedia_search.tool, wikipedia_parse.tool]
+## # Tool handler map is passed to Tools.handle_tool_calls!
+## tool_handler_map = Dict.from_list([
+##     (wikipedia_search.name, wikipedia_search.handler),
+##     (wikipedia_parse.name, wikipedia_parse.handler),
+## ])
+## client = Client.new { apiKey, model: "tool-capable/model", tools }
 ## #...
-## messages = Chat.appendUserMessage previousMessages newMessage
-## response = Http.send (Chat.buildHttpRequest client messages {}) |> Task.result!
-## updatedMessages = updateMessagesFromResponse response messages
-##     |> Tools.handleToolCalls! client toolHandlerMap
+## messages = Chat.add_user_message(client, newMessage, {})
+## response = Http.send!(Chat.build_http_request(client, {}))?
+## with_tool_results = 
+##      Chat.update_messages(response, messages)?
+##     |> Tools.handle_tool_calls!(client toolHandlerMap, { max_model_calls: 5 })
 ## ```
 module { send_http_req! } -> [wikipedia_search, wikipedia_parse]
 

@@ -2,20 +2,21 @@
 ## ```
 ## # USAGE:
 ## # Tool list to initialize the client
-## tools = [roc, rocCheck, rocTest, rocStart]
-## # Tool handler map is passed to Tools.handleToolCalls!
-## toolHandlerMap = Dict.fromList [
+## tools = [roc.tool, roc_check.tool, roc_test.tool, roc_start.tool]
+## # Tool handler map is passed to Tools.handle_tool_calls!
+## tool_handler_map = Dict.from_list([
 ##     (roc.name, roc.handler),
 ##     (rocCheck.name, rocCheck.handler),
 ##     (rocTest.name, rocTest.handler),
 ##     (rocStart.name, rocStart.handler),
-## ]
-## client = Client.init { apiKey, model: "tool-capable/model", tools }
+## ])
+## client = Client.new { apiKey, model: "tool-capable/model", tools }
 ## #...
-## messages = Chat.appendUserMessage previousMessages newMessage
-## response = try Http.send (Chat.buildHttpRequest client messages {})
-## updatedMessages = updateMessagesFromResponse response messages
-##     |> Tools.handleToolCalls! client toolHandlerMap
+## messages = Chat.add_user_message(client, newMessage, {})
+## response = Http.send!(Chat.build_http_request(client, {}))?
+## with_tool_results = 
+##      Chat.update_messages(response, messages)?
+##     |> Tools.handle_tool_calls!(client toolHandlerMap, { max_model_calls: 5 })
 ## ```
 module { cmd_new, cmd_arg, cmd_output! } -> [roc, roc_check, roc_test, roc_start]
 

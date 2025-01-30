@@ -2,18 +2,19 @@
 ## ```
 ## # USAGE:
 ## # Tool list to initialize the client
-## tools = [geocoding, currentWeather]
-## # Tool handler map is passed to Tools.handleToolCalls!
-## toolHandlerMap = Dict.fromList [
+## tools = [geocoding.tool, current_weather.tool]
+## # Tool handler map is passed to Tools.handle_tool_calls!
+## tool_handler_map = Dict.from_list([
 ##     (geocoding.name, geocoding.handler),
 ##     (currentWeather.name, currentWeather.handler),
-## ]
-## client = Client.init { apiKey, model: "tool-capable/model", tools }
+## ])
+## client = Client.new { apiKey, model: "tool-capable/model", tools }
 ## #...
-## messages = Chat.appendUserMessage previousMessages newMessage
-## response = try Http.send (Chat.buildHttpRequest client messages {})
-## updatedMessages = updateMessagesFromResponse response messages
-##     |> Tools.handleToolCalls! client toolHandlerMap
+## messages = Chat.add_user_message(client, newMessage, {})
+## response = Http.send!(Chat.build_http_request(client, {}))?
+## with_tool_results = 
+##      Chat.update_messages(response, messages)?
+##     |> Tools.handle_tool_calls!(client toolHandlerMap, { max_model_calls: 5 })
 ## ```
 module { send_http_req!, get_env_var! } -> [geocoding, current_weather]
 
