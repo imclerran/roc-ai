@@ -26,6 +26,7 @@ module [
     default_url,
     set_system,
     set_messages,
+    set_stream,
 ]
 
 import json.Option exposing [Option]
@@ -35,24 +36,27 @@ import InternalTools exposing [Tool]
 ## The record used to store configuration for the OpenRouter API client.
 ## ```
 ## Client : {
-##     apiKey : Str,
+##     api : Api,
+##     api_key : Str,
 ##     model : Str,
-##     url : Str,
-##     requestTimeout : TimeoutConfig,
-##     providerOrder : Option (List Str),
+##     timeout_ms : TimeoutConfig,
+##     provider_order : Option (List Str),
 ##     temperature : F32,
-##     topP : F32,
-##     topK : U64,
-##     frequencyPenalty : F32,
-##     presencePenalty : F32,
-##     repetitionPenalty : F32,
-##     minP : F32,
-##     topA : F32,
+##     top_p : F32,
+##     top_k : U64,
+##     frequency_penalty : F32,
+##     presence_penalty : F32,
+##     repetition_penalty : F32,
+##     min_p : F32,
+##     top_a : F32,
 ##     seed : Option U64,
-##     maxTokens : Option U64,
+##     max_tokens : Option U64,
 ##     models : Option (List Str),
 ##     route : Option Str,
 ##     tools: Option (List Tool),
+##     system: Option Str,
+##     messages: List Message,
+##     stream: Bool,
 ## }
 ## ```
 Client : {
@@ -75,8 +79,9 @@ Client : {
     models : Option (List Str),
     route : Option Str,
     tools : Option (List Tool),
-    system: Option Str,
-    messages: List Message,
+    system : Option Str,
+    messages : List Message,
+    stream : Bool,
 }
 
 ## Default model to use for API requests. This defaults to the openrouter/auto model router.
@@ -110,10 +115,10 @@ new :
         route ?? [UseFallback, NoFallback],
         tools ?? List Tool,
         system ?? Str,
-
+        stream ?? Bool,
     }
     -> Client
-new = |{ api ?? OpenRouter, api_key, model ?? default_model, timeout_ms ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "", messages ?? [] }|
+new = |{ api ?? OpenRouter, api_key, model ?? default_model, timeout_ms ?? NoTimeout, provider_order ?? [], temperature ?? 1.0, top_p ?? 1.0, top_k ?? 0, frequency_penalty ?? 0.0, presence_penalty ?? 0.0, repetition_penalty ?? 1.0, min_p ?? 0.0, top_a ?? 0.0, seed ?? 0, max_tokens ?? 0, models ?? [], route ?? NoFallback, tools ?? [], system ?? "", messages ?? [], stream ?? Bool.false }|
     {
         api,
         api_key,
@@ -135,6 +140,7 @@ new = |{ api ?? OpenRouter, api_key, model ?? default_model, timeout_ms ?? NoTim
         tools: Option.none({}),
         system: Option.none({}),
         messages,
+        stream,
     }
     |> set_provider_order(provider_order)
     |> set_seed(seed)
@@ -270,9 +276,8 @@ set_models = |client, models|
             List.is_empty(models)
         then
             Option.none({})
-            else
-
-        Option.some(models)
+        else
+            Option.some(models)
     { client & models: models_option }
 
 ## Set the parameter which determines whether to use a fallback model if the primary model fails. OpenRouter will use the models provided in models, or if no models are provided, will try a similarly priced model to the primary.
@@ -309,3 +314,6 @@ set_system = |client, system|
 
 set_messages : Client, List Message -> Client
 set_messages = |client, messages| { client & messages }
+
+set_stream : Client, Bool -> Client
+set_stream = |client, stream| { client & stream }

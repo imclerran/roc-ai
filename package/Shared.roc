@@ -49,7 +49,7 @@ ResponseFormat : {
 
 ## Represents an HTTP response.
 HttpResponse : {
-    status: U16,
+    status : U16,
     headers : List { name : Str, value : Str },
     body : List U8,
 }
@@ -57,6 +57,7 @@ HttpResponse : {
 Message : {
     role : Str,
     content : Str,
+    reasoning_content : Str,
     tool_calls : List ToolCall,
     name : Str,
     tool_call_id : Str,
@@ -73,7 +74,7 @@ ToolCall : {
     },
 }
 
-ApiTarget : [OpenRouter, OpenAI, Anthropic, OpenAICompliant { url: Str }]
+ApiTarget : [OpenRouter, OpenAI, Anthropic, OpenAICompliant { url : Str }]
 
 ## Drop leading garbage characters from the response body
 drop_leading_garbage : List U8 -> List U8

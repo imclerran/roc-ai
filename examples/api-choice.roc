@@ -34,12 +34,12 @@ loop! = |client|
 print_last_message! = |messages|
     when List.last(messages) is
         Ok({ role, content }) if role == "assistant" ->
-            Stdout.line! (("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Magenta) })))
+            Stdout.line!("\nAssistant: ${content}\n" |> Ansi.color({ fg: Standard(Magenta) }))
 
         _ -> Ok({})
 
 ## Define the preferred providers for each model
-preferred_providers = Dict.empty({}) |> Dict.insert("deepseek/deepseek-r1", ["Fireworks", "Together"])
+preferred_providers = Dict.empty({}) |> Dict.insert("deepseek/deepseek-r1:nitro", ["Fireworks", "Together", "Kluster"])
 
 ## The models to choose from
 model_choices = [
@@ -47,8 +47,8 @@ model_choices = [
     { api: Anthropic, model: "claude-3-5-sonnet-20241022" },
     { api: OpenRouter, model: "gpt-4o-mini" },
     { api: OpenRouter, model: "anthropic/claude-3.5-sonnet:beta" },
-    { api: OpenRouter, model: "deepseek/deepseek-r1" },
-    { api: OpenAICompliant { url: "http://127.0.0.1:1234/v1/chat/completions" }, model: "phi-3.1-mini-128k-instruct" },
+    { api: OpenRouter, model: "deepseek/deepseek-r1:nitro" },
+    { api: OpenAICompliant { url: "http://127.0.0.1:11434/api/chat" }, model: "phi3" },
 ]
 
 ## Convert an API tag to a string
@@ -57,7 +57,7 @@ api_to_str = |api|
         OpenAI -> "OpenAI"
         Anthropic -> "Anthropic"
         OpenRouter -> "OpenRouter"
-        OpenAICompliant _ -> "LM Studio"
+        OpenAICompliant _ -> "Ollama"
 
 ## Generate a string to display all the model choices
 api_menu_string =
