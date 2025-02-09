@@ -39,6 +39,7 @@ ToolCall : InternalTools.ToolCall
 Message : {
     role : Str,
     content : Str,
+    reasoning_content : Str,
     tool_calls : List ToolCall,
     name : Str,
     tool_call_id : Str,
@@ -52,12 +53,13 @@ handle_tool_calls! : Client, Dict Str (Str => Result Str _), { max_model_calls ?
 handle_tool_calls! = |client, tool_handler_map, { max_model_calls ?? Num.max_u32 }|
     when List.last(client.messages) is
         Ok({ role, tool_calls }) if role == "assistant" ->
-            if List.is_empty(tool_calls) then #or max_model_calls == 0 then
+            if List.is_empty(tool_calls) then
+                # or max_model_calls == 0 then
                 Ok(client)
             else
                 tc = if max_model_calls > 1 then { tool_choice: Auto } else { tool_choice: None }
                 tool_messages = dispatch_tool_calls!(tool_calls, tool_handler_map)?
-                with_tool_results = Client.set_messages(client, List.join[client.messages, tool_messages])
+                with_tool_results = Client.set_messages(client, List.join [client.messages, tool_messages])
                 response = send_http_req!(Chat.build_http_request(with_tool_results, tc))?
                 with_model_response = Chat.update_messages(with_tool_results, response)?
                 handle_tool_calls!(with_model_response, tool_handler_map, { max_model_calls: max_model_calls - 1 })
@@ -96,6 +98,7 @@ call_tool! = |tool_call, handler!|
         {
             role: "tool",
             content: text,
+            reasoning_content: "",
             tool_calls: [],
             tool_call_id: tool_call.id,
             name: tool_call.function.name,
@@ -108,6 +111,7 @@ invalid_tool_message : ToolCall -> Message
 invalid_tool_message = |tool_call| {
     role: "tool",
     content: "Error: the requested tool could not be found on the host machine.",
+    reasoning_content: "",
     tool_calls: [],
     tool_call_id: tool_call.id,
     name: tool_call.function.name,
