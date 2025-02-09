@@ -8,14 +8,15 @@
 This package is still in WIP 🛠️ stages, so the interface may be subject to change. With that said, the package currently supports:
 
 - 🚀 __NEW!__ Support for many APIs:
-    - OpenAI
-    - OpenAI compliant, with a custom URL
     - Anthropic
+    - OpenAI
+    - OpenAI compliant, with a custom URL 
+        - (Includes local providers, such as Ollama or LM Studio)
     - OpenRouter, with support for hundreds of models, and many OpenRouter exclusive features.
 - Creating and parsing ChatML style requests and responses.
 - Creating and parsing raw prompt style requests and responses.
 - Formatting prompt strings with `[INST]`, `<<SYS>>`, and `<s>` tags for models with llama style fine-tuning.
-- Most common LLM parameters such as `temperature`, `topP`, `topK`, `repetitionPenalty`, etc.
+- Most common LLM parameters such as `temperature`, `top_p`, `top_k`, `repetition_penalty`, etc.
 - OpenRouter specific features like fallback models and provider preferences.
 - LLM tool use - this enables the AI model to call Roc functions and use the results in its answers.
   - Includes a collection of prebuilt tools, or you can build your own
