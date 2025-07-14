@@ -8,7 +8,7 @@
 This package is still in WIP 🛠️ stages, so the interface may be subject to change. With that said, the package currently supports:
 
 > NOTE: roc-ai is currently undergoing a major refactoring. When complete, it should include better support for 
-> Anthropic, including function calling, improve encoding performance, and be structured better for long term
+> Anthropic (including function calling), improve encoding performance, and be structured better for long term
 > maintainance and support. The goal is to keep public facing interface change minimal, but some interface 
 > changes may also be inbound.
 
